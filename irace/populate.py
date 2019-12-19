@@ -19,6 +19,8 @@ Options:
     --week=<id>          week of season to pull results from [default: -1]
     --output=<path>      output directory [default: results]
     --list-seasons       list the active seasons in the club/league
+    --list-members       list the members in the club/league
+    --debug              enable debug output
 """
 
 
@@ -29,7 +31,6 @@ from docopt import docopt
 
 from . import __version__
 from .stats import Client
-from .stats import search
 
 
 def list_seasons(client: Client, args: dict):
@@ -42,6 +43,14 @@ def list_seasons(client: Client, args: dict):
             "\n".join("{}: {}".format(k, v) for k, v in season.items()),
             "*" * 30,
         ))
+
+
+def list_members(client: Client, args: dict):
+    """Main function to list league members."""
+
+    results = client.league_members(args["--club"])
+    print(results)
+    # XXX broken atm
 
 
 def fetch_standings(client: Client, args: dict):
@@ -115,7 +124,7 @@ def validate_integer_arguments(args):
     for arg in ("--car", "--club", "--season", "--week", "--year"):
         try:
             args[arg] = int(args[arg])
-        except ValueError as error:
+        except ValueError:
             raise SystemExit("Invalid value for {}: {}".format(arg, args[arg]))
 
 
@@ -132,12 +141,13 @@ def get_client(args) -> Client:
             raise SystemExit("Interrupted")
 
     if args["--passwd"]:
-        client = Client(args["--user"], args["--passwd"])
+        client = Client(args["--user"], args["--passwd"], args["--debug"])
     else:
-        client = Client(args["--user"], getpass())
+        client = Client(args["--user"], getpass(), args["--debug"])
 
     args.pop("--user")
     args.pop("--passwd")
+    args.pop("--debug")
 
     return client
 
@@ -158,10 +168,11 @@ def main():
     ensure_output_directory(args)
 
     client = get_client(args)
-    if args["--list-seasons"]:
+    if args.pop("--list-seasons"):
         list_seasons(client, args)
+    elif args.pop("--list-members"):
+        list_members(client, args)
     else:
-        args.pop("--list-seasons")
         fetch_results(client, args)
 
 

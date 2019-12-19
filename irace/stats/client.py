@@ -3,6 +3,8 @@
 
 import csv
 import json
+import atexit
+import logging
 
 from io import StringIO
 from urllib.parse import urlencode
@@ -22,6 +24,16 @@ from .constants import Sorting
 from .constants import URLs
 
 
+logging.basicConfig(
+    format=(
+        "%(asctime)s,%(msecs)d %(levelname)-8s [%(filename)s:%(lineno)d] "
+        "%(message)s"
+    ),
+    datefmt="%Y-%m-%d:%H:%M:%S",
+)
+log = logging.getLogger(__name__)
+
+
 class RequestOptions:
     """Options for individual requests."""
 
@@ -31,22 +43,58 @@ class RequestOptions:
         self.json_response = json_response
 
 
-class Stats:
+class _Client:
+    """Static client to manage the connection pool."""
+
+    _client = None
+
+    @staticmethod
+    def _get():
+        """Return and/or create the static throttled HTTP client."""
+
+        if _Client._client is None:
+            throttler.logger.level = 40  # set log level to logging.ERROR
+
+            _Client._client = throttler.BaseThrottler(
+                name="client",
+                delay=0.1,
+                session=Session(),
+            )
+            _Client._client.start()
+
+            atexit.register(_Client.app_exit)
+
+        return _Client._client
+
+    @staticmethod
+    def send_request(request: Request) -> Response:
+        """Sends a request using our connection pool and rate limiter."""
+
+        response = _Client._get().submit(request)  # async
+        return response.get_response(timeout=10)  # sync (when timeout != 0)
+
+    @staticmethod
+    def app_exit():
+        """Exit function to clean up the throttled client."""
+
+        if _Client._client is not None:
+            _Client._client.shutdown()
+            _Client._client = None
+
+
+class Stats:  # pylint: disable=R0904
     """iRacing stats client."""
 
-    def __init__(self, username: str, password: str):
+    def __init__(self, username: str, password: str, debug=False):
         """Create a new stats client."""
 
         self.cookie = ""
         self.customer_id = 0
 
-        throttler.logger.level = 40  # set log level to logging.ERROR
-        self.throttle = throttler.BaseThrottler(
-            name="client",
-            delay=0.1,
-            session=Session(),
-        )
-        self.throttle.start()
+        if debug:
+            log.setLevel(logging.DEBUG)
+        else:
+            log.setLevel(logging.ERROR)
 
         self.cache = {
             "tracks": {},
@@ -82,7 +130,7 @@ class Stats:
     def __del__(self):
         """Standard destructor method."""
 
-        self.throttle.shutdown()
+        _Client.app_exit()
         del self
 
     def _req(self, url, data: dict = None, options: RequestOptions = None):
@@ -91,7 +139,7 @@ class Stats:
         if options is None:
             options = RequestOptions()
 
-        resp = self._send_request(
+        resp = _Client.send_request(
             self._get_request(url, data=data, options=options)
         )
 
@@ -103,6 +151,16 @@ class Stats:
             if "cookie" in resp.request.headers:
                 # holy moly...
                 self.cookie += ";" + resp.request.headers["cookie"]
+
+        if not options.login:
+            log.debug("\n{} {} {}\nheaders: {!r}\ncontent: {}\n{}".format(
+                "*" * 15,
+                url,
+                "*" * 15,
+                resp.headers,
+                resp.text,
+                "*" * (32 + len(url)),
+            ))
 
         if options.json_response:
             return json.loads(resp.text)
@@ -134,12 +192,6 @@ class Stats:
             headers=headers,
         )
 
-    def _send_request(self, request: Request) -> Response:
-        """Sends a request using our connection pool and rate limiter."""
-
-        response = self.throttle.submit(request)  # async
-        return response.get_response(timeout=10)  # sync (when timeout != 0)
-
     def _populate_cache(self, response):
         """Gets general information from iRacing service.
 
@@ -160,7 +212,7 @@ class Stats:
             try:
                 self.cache[item] = utils.get_irservice_var(key, response)
             except Exception as error:
-                print("Failed to parse {}: {!r}".format(item, error))
+                log.error("Failed to parse %s: %r", item, error)
                 raise  # if this happens iRacing is probably down
 
     def irating_chart(self, customer_id=None, category=Charts.ROAD):
@@ -245,7 +297,7 @@ class Stats:
                 res["d"]["32"]
             )
         except Exception as error:
-            print("Error fetching driver search data: {!r}".format(error))
+            log.error("Error fetching driver search data: %r", error)
 
         return {}, 0
 
@@ -404,13 +456,13 @@ class Stats:
     def league_members(self, league_id, page=1):
         """Returns the member list for a league."""
 
-        lower, upper = utils.page_bounds(page)
+        # lower, upper = utils.page_bounds(page)
         return self._req(
             URLs.LEAGUE_MEMBERS,
             data={
                 "leagueID": league_id,
-                "lowerBound": lower,
-                "upperBound": upper,
+                # "lowerBound": lower,
+                # "upperBound": upper,
             },
         )
 
