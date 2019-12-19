@@ -6,11 +6,13 @@ import time
 
 from datetime import datetime
 
+from .constants import Pages
+
 
 def format_results(results, header):
     """Re-arrange the results into a more manageable data structure."""
 
-    return [{header[k]: v} for row in results for k, v in row]
+    return [{header[k]: v for k, v in row.items()} for row in results]
 
 
 def get_irservice_var(key, resp, appear=1):
@@ -41,3 +43,10 @@ def as_timestamp(time_string):
     return time.mktime(
         datetime.strptime(time_string, "%Y-%m-%d").timetuple()
     ) * 1000
+
+
+def page_bounds(page: int = 1) -> (int, int):
+    """Return the lower and upper bounds given the page number."""
+
+    lower = Pages.NUM_ENTRIES * (page - 1) + 1
+    return lower, lower + Pages.NUM_ENTRIES - 1

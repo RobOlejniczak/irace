@@ -10,3 +10,8 @@ frontend API for the website javascript to tie into. Perhaps other admin
 functionality as well, depending on how we decide to implement teams and
 other features as requested.
 """
+
+
+import pkg_resources
+
+__version__ = pkg_resources.get_distribution("irace").version

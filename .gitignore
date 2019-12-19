@@ -59,3 +59,9 @@ target/
 
 # generated examples
 example/
+
+# environment
+env.vars
+
+# populated results
+results/*.json

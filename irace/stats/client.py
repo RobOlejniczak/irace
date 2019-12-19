@@ -95,6 +95,8 @@ class Stats:
             self._get_request(url, data=data, options=options)
         )
 
+        resp.raise_for_status()
+
         if options.login and "Set-Cookie" in resp.headers:
             self.cookie = resp.headers["Set-Cookie"]
             # Must get irsso_members from another header. wtf...
@@ -307,11 +309,18 @@ class Stats:
             "raceweek": season_options.race_week,
             "division": season_options.division,
             "start": lower,
-            "end": upper
+            "end": upper,
         }
 
         res = self._req(URLs.SEASON_STANDINGS, data=data)
-        return utils.format_results(res["d"]["r"], res["m"]), res["d"]["27"]
+
+        if res["d"]:
+            return (
+                utils.format_results(res["d"]["r"], res["m"]),
+                res["d"]["27"]
+            )
+
+        return [], 0
 
     def hosted_results(self, session_options=None, date_range=None,
                        sort_options=None, page=1):
@@ -322,8 +331,7 @@ class Stats:
         total_results. Each page has 25 (Pages.NUM_ENTRIES) results max.
         """
 
-        lower = Pages.NUM_ENTRIES * (page - 1) + 1
-        upper = lower + Pages.NUM_ENTRIES - 1
+        lower, upper = utils.page_bounds(page)
 
         session_options = session_options or search.SessionOptions()
         sort_options = sort_options or search.SortOptions()
@@ -331,8 +339,8 @@ class Stats:
         data = {
             "sort": sort_options.sort,
             "order": sort_options.order,
-            "lowerbound": lower,
-            "upperbound": upper
+            "lowerBound": lower,
+            "upperBound": upper,
         }
 
         if session_options.host is not None:
@@ -385,4 +393,56 @@ class Stats:
         return (
             dict(list(zip(data[0], data[1]))),
             [dict(list(zip(data[3], x))) for x in data[4:]]
+        )
+
+    def league_seasons(self, league_id):
+        """Returns the list of seasons in the league."""
+
+        results = self._req(URLs.LEAGUE_SEASONS, data={"leagueID": league_id})
+        return utils.format_results(results["d"]["r"], results["m"])
+
+    def league_members(self, league_id, page=1):
+        """Returns the member list for a league."""
+
+        lower, upper = utils.page_bounds(page)
+        return self._req(
+            URLs.LEAGUE_MEMBERS,
+            data={
+                "leagueID": league_id,
+                "lowerBound": lower,
+                "upperBound": upper,
+            },
+        )
+
+    def league_season_standings(self, league_id, season_id):
+        """Returns the standings for the given season in the league."""
+
+        return self._req(
+            URLs.LEAGUE_SEASON_STANDINGS,
+            data={
+                "leagueID": league_id,
+                "leagueSeasonID": season_id,
+            },
+        )
+
+    def league_season_team_standings(self, league_id, season_id):
+        """Returns the team standings for the season in the league."""
+
+        return self._req(
+            URLs.LEAGUE_TEAM_STANDINGS,
+            data={
+                "leagueID": league_id,
+                "leagueSeasonID": season_id,
+            },
+        )
+
+    def league_season_calendar(self, league_id, season_id):
+        """Returns the calendar of events for the league and season."""
+
+        return self._req(
+            URLs.LEAGUE_SEASON_CALENDAR,
+            data={
+                "leagueID": league_id,
+                "leagueSeasonID": season_id,
+            },
         )

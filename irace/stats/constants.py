@@ -105,6 +105,12 @@ class URLs:
         "subsessionid=%s&simsesnum=%s&includeSummary=1"
     )  # simsesnum 0 race, -1 qualy or practice, -2 practice
 
+    LEAGUE_SEASONS = "membersite/member/GetLeagueSeasons"
+    LEAGUE_MEMBERS = "membersite/member/GetLeagueMembers"
+    LEAGUE_SEASON_CALENDAR = "membersite/member/GetLeagueCalendarBySeason"
+    LEAGUE_TEAM_STANDINGS = "membersite/member/GetLeagueSeasonTeamStandings"
+    LEAGUE_SEASON_STANDINGS = "membersite/member/GetLeagueSeasonStandings"
+
     @staticmethod
     def get(url: str) -> str:
         """Add the base URL to the slug."""

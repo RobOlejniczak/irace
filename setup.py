@@ -46,10 +46,14 @@ setup(
     install_requires=[
         "RequestsThrottler >= 0.2.5",
         "requests >= 2.2.0",
+        "docopt >= 0.6.1",
     ],
     cmdclass={"test": PyTest},
     tests_require=["mock", "pytest", "pytest-cov"],
-    entry_points={"console_scripts": ["irace-web = irace.web:main"]},  # TODO
+    entry_points={"console_scripts": [
+        # "irace-web = irace.web:main",  # TODO
+        "irace-populate = irace.populate:main",
+    ]},
     classifiers=[
         'Development Status :: 4 - Beta',
         'License :: OSI Approved :: MIT License',
