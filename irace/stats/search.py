@@ -1,6 +1,7 @@
 """Helpers related to search functionality."""
 
 
+from .utils import page_bounds
 from .utils import as_timestamp
 from .constants import Pages
 from .constants import Events
@@ -155,8 +156,7 @@ def merge_query(data, query, page):
 def merge_pagination(data, page):
     """Add query data for pagination to the data dictionary."""
 
-    lower = Pages.NUM_ENTRIES * (page - 1) + 1
-    upper = lower + Pages.NUM_ENTRIES - 1
+    lower, upper = page_bounds(page)
 
     data["lowerbound"] = lower
     data["upperbound"] = upper

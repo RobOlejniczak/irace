@@ -1,6 +1,7 @@
 """Classes in this module serve to help find drivers (client.driver_search)."""
 
 
+from .utils import page_bounds
 from .search import SortOptions
 from .constants import Pages
 from .constants import Sorting
@@ -59,8 +60,7 @@ def post_data(customer_id: int, query: DriverSearch, page: int) -> dict:
 
     query = query or DriverSearch()
 
-    lower = Pages.NUM_ENTRIES * (page - 1) + 1
-    upper = lower + Pages.NUM_ENTRIES - 1
+    lower, upper = page_bounds(page)
 
     return {
         "custid": customer_id,

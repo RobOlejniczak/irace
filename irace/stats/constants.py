@@ -73,7 +73,7 @@ class Official:
 class URLs:
     """URLs used through the stats service."""
 
-    BASE = "https://members.iracing.com/"
+    BASE = "https://members.iracing.com"
 
     # XXX get all these qsargs out of here...
 
@@ -115,7 +115,7 @@ class URLs:
     def get(url: str) -> str:
         """Add the base URL to the slug."""
 
-        return URLs.BASE + url
+        return URLs.BASE + "/" + url
 
 
 class Locations:

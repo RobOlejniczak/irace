@@ -25,6 +25,7 @@ Options:
 
 
 import os
+import json
 from getpass import getpass
 
 from docopt import docopt
@@ -33,24 +34,29 @@ from . import __version__
 from .stats import Client
 
 
+def _print_dict(data: dict) -> None:
+    """Print the dictionary in a block listing all keys and values."""
+
+    print("{}\n{}\n{}".format(
+        "*" * 30,
+        json.dumps(data, sort_keys=True, indent=4),
+        "*" * 30,
+    ))
+
+
 def list_seasons(client: Client, args: dict):
     """Main function to list seasons active in the league."""
 
     for season in client.league_seasons(league_id=args["--club"]):
         # XXX most of this is useless, trim down to useful only...
-        print("{}\n{}\n{}".format(
-            "*" * 30,
-            "\n".join("{}: {}".format(k, v) for k, v in season.items()),
-            "*" * 30,
-        ))
+        _print_dict(season)
 
 
 def list_members(client: Client, args: dict):
     """Main function to list league members."""
 
-    results = client.league_members(args["--club"])
-    print(results)
-    # XXX broken atm
+    for member in client.league_members(args["--club"]):
+        _print_dict(member)
 
 
 def fetch_standings(client: Client, args: dict):

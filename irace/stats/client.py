@@ -34,13 +34,38 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 
-class RequestOptions:
-    """Options for individual requests."""
+class ParsingOptions:
+    """Options for parsing individual requests."""
 
     def __init__(self, get=False, login=False, json_response=True):
         self.get = get
         self.login = login
         self.json_response = json_response
+
+
+class RequestOptions:
+    """Options for individual requests."""
+
+    def __init__(self, parsing: ParsingOptions = None, headers: dict = None,
+                 cookies: dict = None):
+        self.parsing = parsing or ParsingOptions()
+        self.headers = headers or {}
+        self.cookies = cookies or {}
+
+    def merge_headers(self, headers: dict) -> None:
+        """Merge our headers and cookies into the request headers."""
+
+        for key, value in self.headers.items():
+            headers[key] = value
+
+        cookie = headers.get("cookie", "")
+        for key, value in self.cookies.items():
+            if cookie:
+                cookie += "; {}={}".format(key, value)
+            else:
+                cookie = "{}={}".format(key, value)
+
+        headers["cookie"] = cookie
 
 
 class _Client:
@@ -91,7 +116,8 @@ class Stats:  # pylint: disable=R0904
         self.cookie = ""
         self.customer_id = 0
 
-        if debug:
+        self.debug = debug
+        if self.debug:
             log.setLevel(logging.DEBUG)
         else:
             log.setLevel(logging.ERROR)
@@ -114,7 +140,9 @@ class Stats:  # pylint: disable=R0904
                 "utcoffset": 300,
                 "todaysdate": "",
             },
-            options=RequestOptions(login=True, json_response=False),
+            options=RequestOptions(
+                ParsingOptions(login=True, json_response=False),
+            ),
         )
 
         # can we please get a normal login procedure? thanks in advance...
@@ -145,38 +173,50 @@ class Stats:  # pylint: disable=R0904
 
         resp.raise_for_status()
 
-        if options.login and "Set-Cookie" in resp.headers:
+        if options.parsing.login and "Set-Cookie" in resp.headers:
             self.cookie = resp.headers["Set-Cookie"]
             # Must get irsso_members from another header. wtf...
             if "cookie" in resp.request.headers:
                 # holy moly...
                 self.cookie += ";" + resp.request.headers["cookie"]
 
-        if not options.login:
-            log.debug("\n{} {} {}\nheaders: {!r}\ncontent: {}\n{}".format(
+        if not options.parsing.login:
+            header = " ".join((
                 "*" * 15,
+                resp.request.method,
                 url,
+                str(resp.status_code),
                 "*" * 15,
+            ))
+            log.debug(
+                "\n%s\nreq data: %r\nreq headers: %r\n"
+                "resp headers: %r\nresp data: %r\n%s",
+                header,
+                data,
+                resp.request.headers,
                 resp.headers,
                 resp.text,
-                "*" * (32 + len(url)),
-            ))
+                "*" * len(header),
+            )
 
-        if options.json_response:
+        if options.parsing.json_response:
             return json.loads(resp.text)
 
         return resp.text
 
-    def _get_request(self, url, data=None, options=None) -> Request:
+    def _get_request(self, url: str, data: dict,
+                     options: RequestOptions) -> Request:
         """Generate the Request object."""
 
         url = URLs.get(url)
 
         headers = {}
         if self.cookie:
-            headers["Cookie"] = self.cookie
+            headers["cookie"] = self.cookie
 
-        if (data is None) or options.get:
+        options.merge_headers(headers)
+
+        if (data is None) or options.parsing.get:
             return Request(
                 method="GET",
                 url=url,
@@ -184,7 +224,6 @@ class Stats:  # pylint: disable=R0904
                 params=data,
             )
 
-        headers["Content-Type"] = "application/x-www-form-urlencoded"
         return Request(
             method="POST",
             url=url,
@@ -327,7 +366,7 @@ class Stats:  # pylint: disable=R0904
             "SeasonListing",
             self._req(
                 URLs.SEASON_STANDINGS2,
-                options=RequestOptions(json_response=False),
+                options=RequestOptions(ParsingOptions(json_response=False)),
             ),
         )
 
@@ -346,8 +385,7 @@ class Stats:  # pylint: disable=R0904
             tuple (results, total_pages)
         """
 
-        lower = Pages.NUM_ENTRIES * (page - 1) + 1
-        upper = lower + Pages.NUM_ENTRIES - 1
+        lower, upper = utils.page_bounds(page)
 
         if sort_options is None:
             sort_options = search.SortOptions(Sorting.POINTS)
@@ -415,7 +453,7 @@ class Stats:  # pylint: disable=R0904
         return self._req(
             URLs.SESSION_TIMES,
             data={"start": start, "end": end, "season": series_season},
-            options=RequestOptions(get=True),
+            options=RequestOptions(ParsingOptions(get=True)),
         )
 
     def series_race_results(self, season, race_week):
@@ -436,7 +474,7 @@ class Stats:  # pylint: disable=R0904
         data = list(csv.reader(
             StringIO(self._req(
                 URLs.EVENT_RESULTS % (subsession, sessnum),
-                options=RequestOptions(json_response=False),
+                options=RequestOptions(ParsingOptions(json_response=False)),
             )),
             delimiter=",",
             quotechar='"',
@@ -451,20 +489,57 @@ class Stats:  # pylint: disable=R0904
         """Returns the list of seasons in the league."""
 
         results = self._req(URLs.LEAGUE_SEASONS, data={"leagueID": league_id})
-        return utils.format_results(results["d"]["r"], results["m"])
+        seasons = utils.format_strings(
+            utils.format_results(results["d"]["r"], results["m"]),
+            (
+                "league_points_system_desc",
+                "league_season_name",
+                "custom_points_json",
+            ),
+        )
 
-    def league_members(self, league_id, page=1):
+        for season in seasons:
+            season["custom_points_json"] = json.loads(
+                season["custom_points_json"]
+            )
+
+            for previous_race in season.get("previousrace", []):
+                if previous_race:
+                    utils.format_season_race(previous_race)
+
+            if season["nextrace"]:
+                utils.format_season_race(season["nextrace"])
+
+        return seasons
+
+    def league_members(self, league_id):
+        """Returns all members in a league (will paginate)."""
+
+        all_results = []
+        page = 1
+
+        while True:
+            results = self._league_members(league_id, page=page)
+            all_results.extend(results)
+            page += 1
+            if len(results) < Pages.NUM_ENTRIES:
+                break
+
+        return all_results
+
+    def _league_members(self, league_id, page=1):
         """Returns the member list for a league."""
 
-        # lower, upper = utils.page_bounds(page)
-        return self._req(
+        lower, upper = utils.page_bounds(page)
+        members = self._req(
             URLs.LEAGUE_MEMBERS,
             data={
-                "leagueID": league_id,
-                # "lowerBound": lower,
-                # "upperBound": upper,
+                "leagueid": league_id,
+                "lowerBound": lower,
+                "upperBound": upper,
             },
         )
+        return utils.format_strings(members, ("displayName", "lastLoginText"))
 
     def league_season_standings(self, league_id, season_id):
         """Returns the standings for the given season in the league."""
