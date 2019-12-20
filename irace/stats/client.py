@@ -1,12 +1,8 @@
 """Stats client."""
 
 
-import csv
 import json
 import atexit
-import logging
-
-from io import StringIO
 from urllib.parse import urlencode
 
 from requests import Session
@@ -17,21 +13,12 @@ from requests_throttler import throttler
 from . import utils
 from . import search
 from . import drivers
-
+from .logger import log
+from .logger import set_log_level
 from .constants import Pages
 from .constants import Charts
 from .constants import Sorting
 from .constants import URLs
-
-
-logging.basicConfig(
-    format=(
-        "%(asctime)s,%(msecs)d %(levelname)-8s [%(filename)s:%(lineno)d] "
-        "%(message)s"
-    ),
-    datefmt="%Y-%m-%d:%H:%M:%S",
-)
-log = logging.getLogger(__name__)
 
 
 class ParsingOptions:
@@ -117,10 +104,7 @@ class Stats:  # pylint: disable=R0904
         self.customer_id = 0
 
         self.debug = debug
-        if self.debug:
-            log.setLevel(logging.DEBUG)
-        else:
-            log.setLevel(logging.ERROR)
+        set_log_level(self.debug)
 
         self.cache = {
             "tracks": {},
@@ -133,7 +117,7 @@ class Stats:  # pylint: disable=R0904
         }
 
         resp = self._req(
-            URLs.IRACING_LOGIN,
+            URLs.LOGIN,
             data={
                 "username": username,
                 "password": password,
@@ -254,6 +238,7 @@ class Stats:  # pylint: disable=R0904
                 log.error("Failed to parse %s: %r", item, error)
                 raise  # if this happens iRacing is probably down
 
+    @utils.untested
     def irating_chart(self, customer_id=None, category=Charts.ROAD):
         """Gets the iRating data of a driver using its customer_id.
 
@@ -264,26 +249,31 @@ class Stats:  # pylint: disable=R0904
             URLs.STATS_CHART % (customer_id or self.customer_id, category)
         )
 
+    @utils.untested
     def driver_counts(self):
         """Gets list of connected myracers and notifications."""
 
         return self._req(URLs.DRIVER_COUNTS)
 
+    @utils.untested
     def career_stats(self, customer_id=None):
         """Gets career stats (top5, top 10, etc.) of customer_id."""
 
         return self._req(URLs.CAREER_STATS % (customer_id or self.customer_id))
 
+    @utils.untested
     def yearly_stats(self, customer_id=None):
         """Gets yearly stats (top5, top 10, etc.) of customer_id."""
 
         return self._req(URLs.YEARLY_STATS % (customer_id or self.customer_id))
 
+    @utils.untested
     def cars_driven(self, customer_id=None):
         """Gets list of cars driven by customer_id."""
 
         return self._req(URLs.CARS_DRIVEN % (customer_id or self.customer_id))
 
+    @utils.untested
     def personal_best(self, customer_id=None, car_id=0):
         """Personal best times of customer_id in car_id official events."""
 
@@ -294,6 +284,7 @@ class Stats:  # pylint: disable=R0904
             URLs.PERSONAL_BEST % (car_id, customer_id or self.customer_id)
         )
 
+    @utils.untested
     def driver_data(self, driver_name):
         """Personal data of driver using their name in the request."""
 
@@ -301,6 +292,7 @@ class Stats:  # pylint: disable=R0904
             URLs.DRIVER_STATUS % (urlencode({"searchTerms": driver_name}))
         )
 
+    @utils.untested
     def last_race_stats(self, customer_id=None):
         """Gets stats of last races (10 max?) of customer_id."""
 
@@ -308,6 +300,7 @@ class Stats:  # pylint: disable=R0904
             URLs.LAST_RACE_STATS % (customer_id or self.customer_id)
         )
 
+    @utils.untested
     def driver_search(self, query=None, page=1):
         """Search for drivers using several search fields.
 
@@ -340,6 +333,7 @@ class Stats:  # pylint: disable=R0904
 
         return {}, 0
 
+    @utils.untested
     def results_archive(self, customer_id=None, query=None, page=1):
         """Search race results using various fields.
 
@@ -359,6 +353,7 @@ class Stats:  # pylint: disable=R0904
 
         return [], 0
 
+    @utils.untested
     def all_seasons(self):
         """Get all season data available at series stats page."""
 
@@ -370,6 +365,7 @@ class Stats:  # pylint: disable=R0904
             ),
         )
 
+    @utils.untested
     def season_standings(self, season, season_options, sort_options=None,
                          page=1):
         """Search season standings using various fields.
@@ -412,6 +408,7 @@ class Stats:  # pylint: disable=R0904
 
         return [], 0
 
+    @utils.untested
     def hosted_results(self, session_options=None, date_range=None,
                        sort_options=None, page=1):
         """Search hosted races results using various fields.
@@ -447,6 +444,7 @@ class Stats:  # pylint: disable=R0904
         # doesn't need utils.format_results
         return res["rows"], res["rowcount"]
 
+    @utils.untested
     def session_times(self, series_season, start, end):
         """Gets current and future sessions of series_season."""
 
@@ -456,8 +454,9 @@ class Stats:  # pylint: disable=R0904
             options=RequestOptions(ParsingOptions(get=True)),
         )
 
+    @utils.untested
     def series_race_results(self, season, race_week):
-        """ Gets races results of all races of season in specified raceweek """
+        """Gets races results of all races of season in specified raceweek."""
 
         res = self._req(
             URLs.SERIES_RACE_RESULTS,
@@ -465,38 +464,47 @@ class Stats:  # pylint: disable=R0904
         )
         return utils.format_results(res["d"], res["m"])
 
-    def event_results(self, subsession, sessnum=0):
-        """Gets the event results (table of positions, times, etc.).
+    def session_results(self, sub_session_id: int) -> dict:
+        """Get the session (race) results."""
 
-        The event is identified by a subsession id.
-        """
-
-        data = list(csv.reader(
-            StringIO(self._req(
-                URLs.EVENT_RESULTS % (subsession, sessnum),
-                options=RequestOptions(ParsingOptions(json_response=False)),
-            )),
-            delimiter=",",
-            quotechar='"',
-        ))
-
-        return (
-            dict(list(zip(data[0], data[1]))),
-            [dict(list(zip(data[3], x))) for x in data[4:]]
+        results = self._req(
+            URLs.SESSION_RESULTS,
+            data={
+                "subsessionID": sub_session_id,
+                "custid": self.customer_id,
+            },
         )
+
+        if results:
+            utils.format_strings(results)
+
+        return results
+
+    def session_laps(self, sub_session_id, group_id):
+        """Return the laps for the given group_id (driver)."""
+
+        results = self._req(
+            URLs.SESSION_LAPS,
+            data={
+                "subsessionid": sub_session_id,
+                "groupid": group_id,
+            },
+        )
+
+        if results:
+            utils.format_strings(results)
+
+        return results
 
     def league_seasons(self, league_id):
         """Returns the list of seasons in the league."""
 
         results = self._req(URLs.LEAGUE_SEASONS, data={"leagueID": league_id})
-        seasons = utils.format_strings(
-            utils.format_results(results["d"]["r"], results["m"]),
-            (
-                "league_points_system_desc",
-                "league_season_name",
-                "custom_points_json",
-            ),
+        seasons = utils.format_results(
+            results["d"]["r"],
+            results["m"],
         )
+        utils.format_strings(seasons)
 
         for season in seasons:
             season["custom_points_json"] = json.loads(
@@ -539,8 +547,11 @@ class Stats:  # pylint: disable=R0904
                 "upperBound": upper,
             },
         )
-        return utils.format_strings(members, ("displayName", "lastLoginText"))
 
+        utils.format_strings(members)
+        return members
+
+    @utils.untested
     def league_season_standings(self, league_id, season_id):
         """Returns the standings for the given season in the league."""
 
@@ -552,6 +563,7 @@ class Stats:  # pylint: disable=R0904
             },
         )
 
+    @utils.untested
     def league_season_team_standings(self, league_id, season_id):
         """Returns the team standings for the season in the league."""
 

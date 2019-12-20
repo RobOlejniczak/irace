@@ -74,10 +74,9 @@ class URLs:
     """URLs used through the stats service."""
 
     BASE = "https://members.iracing.com"
+    LOGIN = "membersite/Login"
 
-    # XXX get all these qsargs out of here...
-
-    IRACING_LOGIN = "membersite/Login"
+    # TODO - confirm these, I think most/all can be POST w/o args
     IRACING_HOME = "membersite/member/Home.do"
     STATS_CHART = (
         "memberstats/member/GetChartData?custId=%s&catId=%s&chartType=1"
@@ -100,10 +99,10 @@ class URLs:
     )
     SESSION_TIMES = "membersite/member/GetSessionTimes"  # T-m-d
     SERIES_RACE_RESULTS = "memberstats/member/GetSeriesRaceResults"
-    EVENT_RESULTS = (
-        "membersite/member/GetEventResultsAsCSV?"
-        "subsessionid=%s&simsesnum=%s&includeSummary=1"
-    )  # simsesnum 0 race, -1 qualy or practice, -2 practice
+    # END
+
+    SESSION_RESULTS = "membersite/member/GetSubsessionResults"
+    SESSION_LAPS = "membersite/member/GetLaps"
 
     LEAGUE_SEASONS = "membersite/member/GetLeagueSeasons"
     LEAGUE_MEMBERS = "membersite/member/GetLeagueMembers"

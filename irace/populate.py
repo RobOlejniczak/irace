@@ -21,6 +21,7 @@ Options:
     --output=<path>      output directory [default: results]
     --seasons            populate seasons for the club/league
     --members            populate members for the club/league
+    --races              populate race and lap data for the club's season
 """
 
 
@@ -47,10 +48,16 @@ def _print_dict(data: dict) -> None:
 def _success(args: dict, category: tuple, results: int) -> None:
     """Print the success message at app exit."""
 
-    print("Wrote {:,d} results to: {}".format(
-        results,
-        os.path.join(args["--output"], *category),
-    ))
+    out_dir = os.path.join(args["--output"], *category)
+
+    if results:
+        print("Wrote {:,d} result{} to: {}".format(
+            results,
+            "s" * int(results != 1),
+            out_dir,
+        ))
+    else:
+        print("No results found for: {}".format(out_dir))
 
 
 def _category(*args) -> tuple:
@@ -59,33 +66,35 @@ def _category(*args) -> tuple:
     return tuple(str(x) for x in args)
 
 
-def list_seasons(client: Client, args: dict):
+def fetch_seasons(args: dict, client: Client):
     """Main function to list seasons active in the league."""
 
     category = _category("seasons", args["--club"])
     results = 0
 
     for season in client.league_seasons(league_id=args["--club"]):
-        _write_result(args, category, season["league_season_id"], season)
-        results += 1
+        if season:
+            _write_result(args, category, season["league_season_id"], season)
+            results += 1
 
     _success(args, category, results)
 
 
-def list_members(client: Client, args: dict):
+def fetch_members(args: dict, client: Client):
     """Main function to list league members."""
 
     category = _category("members", args["--club"])
     results = 0
 
     for member in client.league_members(args["--club"]):
-        _write_result(args, category, member["custID"], member)
-        results += 1
+        if member:
+            _write_result(args, category, member["custID"], member)
+            results += 1
 
     _success(args, category, results)
 
 
-def fetch_standings(client: Client, args: dict):
+def fetch_standings(args: dict, client: Client):
     """Main function to fetch season standings."""
 
     # XXX do we need this at all?
@@ -96,31 +105,51 @@ def fetch_standings(client: Client, args: dict):
     print(results)
 
 
-def fetch_results(client: Client, args: dict):
+def fetch_results(args: dict, client: Client):
     """Main function to fetch league results."""
 
     events = client.league_season_calendar(args["--club"], args["--season"])
 
     if events and events["rowcount"] >= 1:
-        sessions = {}
 
-        for event in events["rows"]:
-            sessions[event["sessionid"]] = client.event_results(
-                event["sessionid"]
-            )
-
-        # XXX not sure what these returns look like yet...
         category = _category("races", args["--club"], args["--season"])
         results = 0
 
-        for session_id, result in sessions.items():
-            _write_result(args, category, session_id, repr(result))
-            results += 1
+        for event in events["rows"]:
+            sub_session_id = event["subsessionid"]
+            session_result = client.session_results(sub_session_id)
+            if session_result:
+                _write_result(args, category, sub_session_id, session_result)
+                results += 1
+                _fetch_laps(args, client, session_result)
 
         _success(args, category, results)
 
     else:
         raise SystemExit("Could not fetch any results :(\n{!r}".format(args))
+
+
+def _fetch_laps(args: dict, client: Client, session: dict):
+    """Fetch laps for all drivers in the session."""
+
+    _id = session["subsessionid"]
+    category = _category("laps", args["--club"], args["--season"], _id)
+    results = 0
+
+    fetched = []
+    for driver in session["rows"]:
+        if driver["groupid"] in fetched:
+            # the same driver will appear up to 3 times in rows, due
+            # to entries for practice, qualify and race...
+            continue
+        fetched.append(driver["groupid"])
+
+        laps = client.session_laps(_id, driver["groupid"])
+        if laps:
+            results += 1
+            _write_result(args, category, driver["custid"], laps)
+
+    _success(args, category, results)
 
 
 def _write_result(args: dict, category: tuple, _id: str, obj: object) -> None:
@@ -214,11 +243,15 @@ def main():
 
     client = get_client(args)
     if args.pop("--seasons"):
-        list_seasons(client, args)
+        fetch_seasons(args, client)
     elif args.pop("--members"):
-        list_members(client, args)
+        fetch_members(args, client)
+    elif args.pop("--races"):
+        fetch_results(args, client)
     else:
-        fetch_results(client, args)
+        fetch_members(args, client)
+        fetch_seasons(args, client)
+        fetch_results(args, client)
 
 
 if __name__ == "__main__":

@@ -4,10 +4,29 @@
 import json
 import time
 
-from urllib.parse import unquote_plus
 from datetime import datetime
+from functools import wraps
+from urllib.parse import unquote_plus
 
+from .logger import log
 from .constants import Pages
+
+
+def untested(func):  # XXX remove me!
+    """Wrap for untested functionality."""
+
+    @wraps(func)
+    def _untested(*args, **kwargs):
+        """Warn the user they're about to use an untested function."""
+
+        log.warning(
+            "Function %s is untested! Please report bugs to "
+            "https://github.com/a-tal/irace/issues thanks!",
+            func.__name__,
+        )
+        return func(*args, **kwargs)
+
+    return _untested
 
 
 def format_results(results, header):
@@ -16,22 +35,24 @@ def format_results(results, header):
     return [{header[k]: v for k, v in row.items()} for row in results]
 
 
-def format_strings(results: list, keys: tuple) -> list:
-    """Clean up the string key values in results."""
+def format_strings(results: dict) -> None:
+    """Blindly clean all string values in the dictionary (recursive)."""
 
-    for result in results:
-        _format_strings(result, keys)
+    if isinstance(results, (list, tuple)):
+        for result in results:
+            format_strings(result)
+        return
 
-    return results
-
-
-def _format_strings(result: dict, keys: tuple) -> None:
-    """Munge the keys in the result dictionary."""
-
-    for key in keys:
-        # iRacing.com double plus encodes their strings...
-        # so um. just... go ahead and double undo that here
-        result[key] = unquote_plus(unquote_plus(result[key]))
+    for key, value in results.items():
+        if isinstance(value, str):
+            # iRacing.com double plus encodes their strings...
+            # so um. just... go ahead and double undo that here
+            results[key] = unquote_plus(unquote_plus(results[key]))
+        elif isinstance(value, (list, tuple)):
+            for nested in value:
+                format_strings(nested)
+        elif isinstance(value, dict):
+            format_strings(value)
 
 
 def format_season_race(race: dict) -> None:
@@ -40,8 +61,8 @@ def format_season_race(race: dict) -> None:
     Context here is only for the League Seasons return.
     """
 
-    _format_strings(race, ("config_name", "track_name"))
-    race["cars"] = json.loads(unquote_plus(unquote_plus(race["cars"])))  # lol
+    format_strings(race)
+    race["cars"] = json.loads(race["cars"])
 
 
 def get_irservice_var(key, resp, appear=1):
