@@ -160,7 +160,7 @@ class Laps:
     def total_valid_time_string(self) -> str:
         """Total lap time of all valid laps as a string."""
 
-        return _as_time_string(self.total_time)
+        return _as_time_string(self.total_valid_time)
 
     @property
     def valid_laps(self) -> int:
