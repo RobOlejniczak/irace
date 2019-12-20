@@ -140,12 +140,24 @@ class Laps:
 
     @property
     def total_time(self) -> float:
+        """Total lap time of all laps."""
+
+        return sum(x.time.total_seconds() for x in self.laps)
+
+    @property
+    def total_time_string(self) -> str:
+        """Total lap time of all laps as a string."""
+
+        return _as_time_string(self.total_time)
+
+    @property
+    def total_valid_time(self) -> float:
         """Total lap time of all valid laps."""
 
         return self._lap_totals()[0]
 
     @property
-    def total_time_string(self) -> str:
+    def total_valid_time_string(self) -> str:
         """Total lap time of all valid laps as a string."""
 
         return _as_time_string(self.total_time)
