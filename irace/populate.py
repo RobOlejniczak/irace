@@ -29,9 +29,7 @@ import os
 import json
 from getpass import getpass
 
-from docopt import docopt
-
-from . import __version__
+from .utils import get_args
 from .stats import Client
 
 
@@ -229,14 +227,7 @@ def get_client(args) -> Client:
 def main():
     """Command line entry point."""
 
-    args = docopt(__doc__)
-
-    if args["--version"]:
-        print("iRace {}".format(__version__))
-        raise SystemExit
-
-    args.pop("--version")
-    args.pop("--help")
+    args = get_args(__doc__)
 
     validate_integer_arguments(args)
     _ensure_directory(args["--output"])

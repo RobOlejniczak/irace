@@ -53,6 +53,7 @@ setup(
     entry_points={"console_scripts": [
         # "irace-web = irace.web:main",  # TODO
         "irace-populate = irace.populate:main",
+        "irace-lap = irace.parse_laps:main",
     ]},
     classifiers=[
         'Development Status :: 4 - Beta',
