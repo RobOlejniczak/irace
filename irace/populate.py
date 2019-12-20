@@ -10,6 +10,7 @@ Usage:
 Options:
     -h --help            show this message
     --version            display version information
+    --debug              enable debug output
     --user=<user>        iRacing.com username
     --passwd=<passwd>    iRacing.com password (insecure, better to be prompted)
     --club=<id>          iRacing.com club/league ID [default: 637]
@@ -18,9 +19,8 @@ Options:
     --season=<id>        season to pull results from [default: 47806]
     --week=<id>          week of season to pull results from [default: -1]
     --output=<path>      output directory [default: results]
-    --list-seasons       list the active seasons in the club/league
-    --list-members       list the members in the club/league
-    --debug              enable debug output
+    --seasons            populate seasons for the club/league
+    --members            populate members for the club/league
 """
 
 
@@ -37,26 +37,52 @@ from .stats import Client
 def _print_dict(data: dict) -> None:
     """Print the dictionary in a block listing all keys and values."""
 
-    print("{}\n{}\n{}".format(
+    print("{}\n{}\n{}".format(  # XXX temp/debug purposes only...
         "*" * 30,
         json.dumps(data, sort_keys=True, indent=4),
         "*" * 30,
     ))
 
 
+def _success(args: dict, category: tuple, results: int) -> None:
+    """Print the success message at app exit."""
+
+    print("Wrote {:,d} results to: {}".format(
+        results,
+        os.path.join(args["--output"], *category),
+    ))
+
+
+def _category(*args) -> tuple:
+    """Ensure all category levels are strings."""
+
+    return tuple(str(x) for x in args)
+
+
 def list_seasons(client: Client, args: dict):
     """Main function to list seasons active in the league."""
 
+    category = _category("seasons", args["--club"])
+    results = 0
+
     for season in client.league_seasons(league_id=args["--club"]):
-        # XXX most of this is useless, trim down to useful only...
-        _print_dict(season)
+        _write_result(args, category, season["league_season_id"], season)
+        results += 1
+
+    _success(args, category, results)
 
 
 def list_members(client: Client, args: dict):
     """Main function to list league members."""
 
+    category = _category("members", args["--club"])
+    results = 0
+
     for member in client.league_members(args["--club"]):
-        _print_dict(member)
+        _write_result(args, category, member["custID"], member)
+        results += 1
+
+    _success(args, category, results)
 
 
 def fetch_standings(client: Client, args: dict):
@@ -76,48 +102,61 @@ def fetch_results(client: Client, args: dict):
     events = client.league_season_calendar(args["--club"], args["--season"])
 
     if events and events["rowcount"] >= 1:
-        results = {}
+        sessions = {}
 
         for event in events["rows"]:
-            results[event["sessionid"]] = client.event_results(
+            sessions[event["sessionid"]] = client.event_results(
                 event["sessionid"]
             )
 
         # XXX not sure what these returns look like yet...
-        for session_id, result in results.items():
-            write_result(args, session_id, repr(result))
+        category = _category("races", args["--club"], args["--season"])
+        results = 0
+
+        for session_id, result in sessions.items():
+            _write_result(args, category, session_id, repr(result))
+            results += 1
+
+        _success(args, category, results)
 
     else:
         raise SystemExit("Could not fetch any results :(\n{!r}".format(args))
 
 
-def write_result(args, page, result):
+def _write_result(args: dict, category: tuple, _id: str, obj: object) -> None:
     """Write the result to file."""
 
-    file_name = os.path.join(args["--output"], "{}.json".format(page))
-    with open(file_name, "w") as open_results:
-        open_results.write(result)
+    if category:
+        directory = os.path.join(args["--output"], *category)
+    else:
+        directory = args["--output"]
+
+    _file = os.path.join(_ensure_directory(directory), "{}.json".format(_id))
+    with open(_file, "w") as open_results:
+        open_results.write(json.dumps(obj, sort_keys=True, indent=4))
 
 
-def ensure_output_directory(args):
-    """Ensures the results directory exists.
+def _ensure_directory(file_path: str) -> str:
+    """Ensures the directory at file_path exists.
 
-    Args:
-        args: dictionary of docopt arguments, modifies `--output` key
+    Returns:
+        string absolute file_path
     """
 
-    if os.path.isabs(args["--output"]):
-        results = args["--output"]
-    else:
-        results = os.path.abspath(args["--output"])
+    if not os.path.isabs(file_path):
+        file_path = os.path.abspath(file_path)
 
-    if os.path.exists(results) and not os.path.isdir(results):
-        raise SystemExit("Results directory is an existing file? Bailing now.")
+    if os.path.exists(file_path) and not os.path.isdir(file_path):
+        raise SystemExit(
+            "Output directory {} already exists, as a file. Bailing.".format(
+                file_path
+            )
+        )
 
-    if not os.path.exists(results):
-        os.makedirs(results)
+    if not os.path.exists(file_path):
+        os.makedirs(file_path)
 
-    args["--output"] = results
+    return file_path
 
 
 def validate_integer_arguments(args):
@@ -171,12 +210,12 @@ def main():
     args.pop("--help")
 
     validate_integer_arguments(args)
-    ensure_output_directory(args)
+    _ensure_directory(args["--output"])
 
     client = get_client(args)
-    if args.pop("--list-seasons"):
+    if args.pop("--seasons"):
         list_seasons(client, args)
-    elif args.pop("--list-members"):
+    elif args.pop("--members"):
         list_members(client, args)
     else:
         fetch_results(client, args)

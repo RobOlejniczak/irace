@@ -65,3 +65,4 @@ env.vars
 
 # populated results
 results/*.json
+results/**/*.json
