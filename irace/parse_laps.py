@@ -57,11 +57,10 @@ def main():
     ]
 
     times = []
-    flags = laps.flagged_laps
     for lap in laps.laps:
         lap_time = lap.time_string
-        if lap.lap in flags:
-            lap_time += " [{}]".format(", ".join(flags[lap.lap]))
+        if lap.flags:
+            lap_time += " [{}]".format(", ".join(x.name for x in lap.flags))
         times.append(("Lap {}".format(lap.lap), lap_time))
 
     print("Parsed lap JSON {}:\n{}\n{}\n{}".format(
