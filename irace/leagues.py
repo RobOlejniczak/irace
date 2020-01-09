@@ -31,7 +31,7 @@ def main():
     except ValueError:
         res = client.league_search(args["<SEARCH>"])
 
-    print(json.dumps(res, sort_keys=True, indent=4))
+    print(json.dumps(res, sort_keys=True, indent=4, ensure_ascii=False))
 
 
 if __name__ == "__main__":

@@ -39,7 +39,7 @@ def _print_dict(data: dict) -> None:
 
     print("{}\n{}\n{}".format(  # XXX temp/debug purposes only...
         "*" * 30,
-        json.dumps(data, sort_keys=True, indent=4),
+        json.dumps(data, sort_keys=True, indent=4, ensure_ascii=False),
         "*" * 30,
     ))
 
@@ -172,7 +172,7 @@ def _write_result(args: dict, category: tuple, _id: str, obj: object) -> None:
 
     _file = os.path.join(_ensure_directory(directory), "{}.json".format(_id))
     with open(_file, "w") as open_results:
-        open_results.write(json.dumps(obj, sort_keys=True, indent=4))
+        open_results.write(json.dumps(obj, sort_keys=True, indent=4, ensure_ascii=False))
 
 
 def _ensure_directory(file_path: str) -> str:
