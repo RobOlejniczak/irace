@@ -116,7 +116,7 @@ def _read_data(args: dict, data_type: str, *sub: str) -> list:
     path = os.path.join(args["paths"][data_type], *[str(x) for x in sub], "*")
     for json_path in glob(path):
         try:
-            with open(json_path, "r") as open_data:
+            with io.open(json_path, "r", encoding="utf-8") as open_data:
                 data.append(json.load(open_data))
         except Exception as err:
             raise SystemExit("Failed to read {}: {!r}".format(data_type, err))
