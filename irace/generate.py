@@ -216,7 +216,6 @@ def _write_seasons(templates: dict, base_path: str, seasons: list,
                 base_path,
                 "seasons",
                 str(season["season"]["league_season_id"]),
-                str(race["race"]["subsessionid"]),
             ))
             race_obj = Race(race["laps"], race["race"])
             season_races.append(race_obj)
