@@ -281,6 +281,10 @@ def _write_templates(args: dict, data: dict) -> None:
 
     templates = _get_templates()
     _write_file(
+        templates["style.css"].render(),
+        os.path.join(args["paths"]["output"], "style.css"),
+    )
+    _write_file(
         templates["index.html"].render(leagues=data["leagues"]),
         os.path.join(args["paths"]["output"], "index.html"),
     )

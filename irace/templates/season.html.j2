@@ -1,7 +1,9 @@
 <!DOCTYPE html>
 <html lang="en-US">
  <head>
+  <meta charset="utf-8">
   <title>{{ league["leaguename"] }} {{ season["league_season_name"] }}</title>
+  <link rel="stylesheet" type="text/css" href="/style.css">
   <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.20/css/jquery.dataTables.min.css">
   <script type="text/javascript" language="javascript" src="https://code.jquery.com/jquery-3.3.1.js"></script>
   <script type="text/javascript" language="javascript" src="https://cdn.datatables.net/1.10.20/js/jquery.dataTables.min.js"></script>
@@ -24,7 +26,7 @@
   </div>
   <div id="standings">
    <p>Season Standings:</p>
-   <table id="results">
+   <table id="results" class="display compact">
     <thead>
      <tr>
       <th>Name</th>
