@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en-US">
+ <head>
+  <title>{{ league["leaguename"] }} {{ season["league_season_name"] }}</title>
+  <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.20/css/jquery.dataTables.min.css">
+  <script type="text/javascript" language="javascript" src="https://code.jquery.com/jquery-3.3.1.js"></script>
+  <script type="text/javascript" language="javascript" src="https://cdn.datatables.net/1.10.20/js/jquery.dataTables.min.js"></script>
+  <script type="text/javascript" class="init">
+   $(document).ready(function() {
+     $("#results").DataTable({
+       "order": [[ 1, "asc" ]],
+       "lengthMenu": [[25, -1], [25, "All"]]
+     });
+   });
+  </script>
+ </head>
+ <body>
+  <p><a href='/{{ league["leagueid"] }}.html'>{{ league["leaguename"] }}</a> {{ season["league_season_name"] }}</p>
+  <div id="races">
+   <p>Race results:</p>
+   {%- for race in races %}
+   <p><a href='/{{ league["leagueid"] }}/seasons/{{ season.season["league_season_id"] }}/{{ race["subsessionid"] }}.html'>{{ race["track_name"] }}</a></p>
+   {%- endfor %}
+  </div>
+  <div id="standings">
+   <p>Season Standings:</p>
+   <table id="results">
+    <thead>
+     <tr>
+      <th>Name</th>
+      <td>Position</td>
+      <th>Points</th>
+      <th>Races</th>
+      <th>Wins</th>
+      <th>Podiums</th>
+      <th>Top 5</th>
+      <th>Top 10</th>
+      <th>Avg Start</th>
+      <th>Avg Finish</th>
+      <th>Laps</th>
+      <th>Incidents</th>
+      <th>Incidents per corner</th>
+     </tr>
+    </thead>
+    <tbody>
+     {%- for driver in season.standings %}
+     <tr>
+      <td>{{ driver.driver }}</td>
+      <td>{{ driver.position }}</td>
+      <td>{{ driver.points }}</td>
+      <td>{{ driver.races }}</td>
+      <td>{{ driver.wins }}</td>
+      <td>{{ driver.podiums }}</td>
+      <td>{{ driver.top5 }}</td>
+      <td>{{ driver.top10 }}</td>
+      <td>{{ "{:.0f}".format(driver.avg_start) }}</td>
+      <td>{{ "{:.0f}".format(driver.avg_finish) }}</td>
+      <td>{{ driver.laps }}</td>
+      <td>{{ driver.incidents }}</td>
+      <td>{{ "{:.6f}".format(driver.incidents_per_corner) }}</td>
+     </tr>
+     {%- endfor %}
+    </tbody>
+   </table>
+  </div>
+ </body>
+</html>

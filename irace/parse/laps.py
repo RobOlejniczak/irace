@@ -1,8 +1,10 @@
 """Lap data parsing utilities."""
 
 
-from datetime import timedelta
 from collections import namedtuple
+
+from .utils import time_string
+from .utils import as_timedelta
 
 
 Flag = namedtuple("Flag", ("name", "mask"))
@@ -33,30 +35,14 @@ def _get_flags(flags: int) -> tuple:
     return tuple(flag_objs)
 
 
-def _as_timedelta(timestamp: float) -> timedelta:
-    """Convert whatever timestamps iRacing is using into standard."""
-
-    # NB: not microseconds nor milliseconds, unfortunately
-    return timedelta(seconds=timestamp / 10000.0)
-
-
-def _as_time_string(timestamp) -> str:
-    """Convert the timestamp to a decent looking time string."""
-
-    if isinstance(timestamp, timedelta):
-        return str(timestamp)
-
-    return str(timedelta(seconds=timestamp))
-
-
 class Lap:
     """Parsed lap object."""
 
     def __init__(self, data: dict, prev: int):
         self.flags = _get_flags(data["flags"])
-        self.lap = data["lap_num"]
-        self.time = _as_timedelta(data["ses_time"] - prev)
-        self.time_string = _as_time_string(self.time)
+        self.flag_names = tuple([x.name for x in self.flags])
+        self.lap = data["lap_num"] + 1
+        self.time = as_timedelta(data["ses_time"] - prev)
 
 
 class Laps:
@@ -95,7 +81,7 @@ class Laps:
     def average_string(self) -> str:
         """Average lap time, as a string."""
 
-        return _as_time_string(self.average)
+        return time_string(self.average)
 
     @property
     def fast_lap(self) -> int:
@@ -127,8 +113,8 @@ class Laps:
             if best_lap_time is None or driver["bestlaptime"] < best_lap_time:
                 best_lap_time = driver["bestlaptime"]
 
-        if best_lap_time:
-            return _as_timedelta(best_lap_time).total_seconds()
+        if best_lap_time > 0:
+            return as_timedelta(best_lap_time).total_seconds()
 
         return -1.0
 
@@ -136,7 +122,7 @@ class Laps:
     def fastest_lap_string(self) -> str:
         """Fastest lap time (in seconds) as a string."""
 
-        return _as_time_string(self.fastest_lap)
+        return time_string(self.fastest_lap)
 
     @property
     def total_time(self) -> float:
@@ -148,7 +134,7 @@ class Laps:
     def total_time_string(self) -> str:
         """Total lap time of all laps as a string."""
 
-        return _as_time_string(self.total_time)
+        return time_string(self.total_time)
 
     @property
     def total_valid_time(self) -> float:
@@ -160,7 +146,7 @@ class Laps:
     def total_valid_time_string(self) -> str:
         """Total lap time of all valid laps as a string."""
 
-        return _as_time_string(self.total_valid_time)
+        return time_string(self.total_valid_time)
 
     @property
     def valid_laps(self) -> int:
@@ -201,3 +187,40 @@ class Laps:
                 total_lap_time += lap.time.total_seconds()
 
         return total_lap_time, valid_laps
+
+    @property
+    def fastest_driver(self) -> str:
+        """Returns the name of the driver with the fastest lap."""
+
+        fastest_driver = ""
+        fastest_time = -1.0
+        for driver in self.drivers:
+            lap_time = driver["bestlaptime"]
+            if lap_time > 0 and (fastest_time < 0 or lap_time < fastest_time):
+                fastest_time = lap_time
+                fastest_driver = driver["displayname"]
+        return fastest_driver
+
+    @property
+    def driver(self) -> str:
+        """Returns the name of the only driver.
+
+        If more than one driver is present in the lap data,
+        this will return an empty string
+        """
+
+        if len(self.drivers) == 1:
+            return self.drivers[0]["displayname"]
+        return ""
+
+    @property
+    def driver_id(self) -> int:
+        """Returns the ID of the only driver.
+
+        If more than one driver is present in the lap data,
+        this will return zero
+        """
+
+        if len(self.drivers) == 1:
+            return self.drivers[0]["custid"]
+        return 0

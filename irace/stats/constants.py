@@ -109,6 +109,7 @@ class URLs:
     LEAGUE_SEASON_CALENDAR = "membersite/member/GetLeagueCalendarBySeason"
     LEAGUE_TEAM_STANDINGS = "membersite/member/GetLeagueSeasonTeamStandings"
     LEAGUE_SEASON_STANDINGS = "membersite/member/GetLeagueSeasonStandings"
+    LEAGUE_SEARCH = "membersite/member/GetLeagueDirectory"
 
     @staticmethod
     def get(url: str) -> str:

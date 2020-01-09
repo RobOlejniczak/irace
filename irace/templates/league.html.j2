@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en-US">
+ <head>
+  <title>{{ league["leaguename"] }}</title>
+ </head>
+ <body>
+  <div id="seasons">
+   <p>{{ league["leaguename"] }} seasons</p>
+   {%- for season in seasons %}
+   <p><a href='/{{ league["leagueid"] }}/seasons/{{ season["league_season_id"] }}.html'>{{ season["league_season_name"] }}</a></p>
+   {%- endfor %}
+  </div>
+  <div id="members">
+   <p><a href='/{{ league["leagueid"] }}/members.html'>Member list</a></p>
+  </div>
+ </body>
+</html>

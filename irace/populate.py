@@ -19,6 +19,7 @@ Options:
     --season=<id>        season to pull results from [default: 47806]
     --week=<id>          week of season to pull results from [default: -1]
     --output=<path>      output directory [default: results]
+    --league             populate basic information about the club/league
     --seasons            populate seasons for the club/league
     --members            populate members for the club/league
     --races              populate race and lap data for the club's season
@@ -27,10 +28,10 @@ Options:
 
 import os
 import json
-from getpass import getpass
 
-from .utils import get_args
 from .stats import Client
+from .utils import get_args
+from .utils import get_client
 
 
 def _print_dict(data: dict) -> None:
@@ -64,7 +65,18 @@ def _category(*args) -> tuple:
     return tuple(str(x) for x in args)
 
 
-def fetch_seasons(args: dict, client: Client):
+def fetch_league(args: dict, client: Client) -> None:
+    """Fetch basic information about the league."""
+
+    category = ("leagues",)
+    league = client.league_info(args["--club"])
+    if league:
+        _write_result(args, category, args["--club"], league)
+
+    _success(args, category, int(league is not None))
+
+
+def fetch_seasons(args: dict, client: Client) -> None:
     """Main function to list seasons active in the league."""
 
     category = _category("seasons", args["--club"])
@@ -78,7 +90,7 @@ def fetch_seasons(args: dict, client: Client):
     _success(args, category, results)
 
 
-def fetch_members(args: dict, client: Client):
+def fetch_members(args: dict, client: Client) -> None:
     """Main function to list league members."""
 
     category = _category("members", args["--club"])
@@ -92,7 +104,7 @@ def fetch_members(args: dict, client: Client):
     _success(args, category, results)
 
 
-def fetch_standings(args: dict, client: Client):
+def fetch_standings(args: dict, client: Client) -> None:
     """Main function to fetch season standings."""
 
     # XXX do we need this at all?
@@ -103,7 +115,7 @@ def fetch_standings(args: dict, client: Client):
     print(results)
 
 
-def fetch_results(args: dict, client: Client):
+def fetch_results(args: dict, client: Client) -> None:
     """Main function to fetch league results."""
 
     events = client.league_season_calendar(args["--club"], args["--season"])
@@ -127,7 +139,7 @@ def fetch_results(args: dict, client: Client):
         raise SystemExit("Could not fetch any results :(\n{!r}".format(args))
 
 
-def _fetch_laps(args: dict, client: Client, session: dict):
+def _fetch_laps(args: dict, client: Client, session: dict) -> None:
     """Fetch laps for all drivers in the session."""
 
     _id = session["subsessionid"]
@@ -186,7 +198,7 @@ def _ensure_directory(file_path: str) -> str:
     return file_path
 
 
-def validate_integer_arguments(args):
+def validate_integer_arguments(args) -> None:
     """Ensure all integer arguments passed are valid.
 
     Args:
@@ -200,31 +212,7 @@ def validate_integer_arguments(args):
             raise SystemExit("Invalid value for {}: {}".format(arg, args[arg]))
 
 
-def get_client(args) -> Client:
-    """Creates the stats.Client with the credentials passed."""
-
-    args["--user"] = args["--user"] or os.getenv("IRACING_USERNAME")
-    args["--passwd"] = args["--passwd"] or os.getenv("IRACING_PASSWORD")
-
-    while not args["--user"]:
-        try:
-            args["--user"] = input("iRacing.com username? ")
-        except KeyboardInterrupt:
-            raise SystemExit("Interrupted")
-
-    if args["--passwd"]:
-        client = Client(args["--user"], args["--passwd"], args["--debug"])
-    else:
-        client = Client(args["--user"], getpass(), args["--debug"])
-
-    args.pop("--user")
-    args.pop("--passwd")
-    args.pop("--debug")
-
-    return client
-
-
-def main():
+def main() -> None:
     """Command line entry point."""
 
     args = get_args(__doc__)
@@ -233,13 +221,16 @@ def main():
     _ensure_directory(args["--output"])
 
     client = get_client(args)
-    if args.pop("--seasons"):
+    if args.pop("--league"):
+        fetch_league(args, client)
+    elif args.pop("--seasons"):
         fetch_seasons(args, client)
     elif args.pop("--members"):
         fetch_members(args, client)
     elif args.pop("--races"):
         fetch_results(args, client)
     else:
+        fetch_league(args, client)
         fetch_members(args, client)
         fetch_seasons(args, client)
         fetch_results(args, client)

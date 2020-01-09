@@ -585,3 +585,38 @@ class Stats:  # pylint: disable=R0904
                 "leagueSeasonID": season_id,
             },
         )
+
+    def _league_search(self, term):
+        """Requests the league directory with the search parameter."""
+
+        raw = self._req(
+            URLs.LEAGUE_SEARCH,
+            data={
+                "search": term,
+                "restrictToMember": 0,
+                "lowerbound": 1,
+                "upperbound": 33,
+            },
+        )
+        if raw and raw.get("d"):
+            res = utils.format_results(raw["d"]["r"], raw["m"])
+            utils.format_strings(res)
+            return res
+        return []
+
+    def league_search(self, phrase):
+        """Returns basic info about the league (by name)."""
+
+        for result in self._league_search(phrase):
+            # XXX not sure if iRacing leagues are actually case-insensitive
+            if result["leaguename"].lower() == phrase.lower():
+                return result
+        return None
+
+    def league_info(self, league_id):
+        """Returns basic info about the league by ID."""
+
+        for result in self._league_search(league_id):
+            if result["leagueid"] == league_id:
+                return result
+        return None

@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html lang="en-US">
+ <head>
+  <title>iRace Leagues</title>
+ </head>
+ <body>
+  {%- for league in leagues %}
+  <p><a href='/{{ league["leagueid"] }}.html'>{{ league["leaguename"] }}</a></p>
+  {%- endfor %}
+ </body>
+</html>

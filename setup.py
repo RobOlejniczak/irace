@@ -2,6 +2,7 @@
 
 
 import io
+import os
 from setuptools import setup
 from setuptools import find_packages
 from setuptools.command.test import test as TestCommand
@@ -41,19 +42,28 @@ setup(
     download_url="https://github.com/a-tal/irace",
     description="iRacing web frontend for league stats",
     long_description=long_description(),
+    include_package_data=True,
+    zip_safe=False,
+    package_data={"iRace": [
+        os.path.join("irace", "templates", f) for f in
+        os.listdir(os.path.join("irace", "templates"))
+    ]},
     packages=find_packages(exclude=["test"]),
     python_requires=">= 3.7.4",
     install_requires=[
         "RequestsThrottler >= 0.2.5",
         "requests >= 2.2.0",
         "docopt >= 0.6.1",
+        "jinja2 >= 2.10.3",
     ],
     cmdclass={"test": PyTest},
     tests_require=["mock", "pytest", "pytest-cov"],
     entry_points={"console_scripts": [
-        # "irace-web = irace.web:main",  # TODO
         "irace-populate = irace.populate:main",
         "irace-lap = irace.parse_laps:main",
+        "irace-generate = irace.generate:main",
+        "irace-league = irace.leagues:main",
+        "irace-results = irace.parse_race:main",
     ]},
     classifiers=[
         'Development Status :: 4 - Beta',

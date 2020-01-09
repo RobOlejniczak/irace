@@ -15,6 +15,7 @@ import os
 import json
 
 from .utils import get_args
+from .utils import read_json
 from .parse.laps import Laps
 
 
@@ -22,8 +23,7 @@ def _get_json(args) -> dict:
     """Returns the loaded lap JSON data."""
 
     if args["--file"] and os.path.isfile(args["--file"]):
-        with open(args["--file"], "r") as openfile:
-            return json.loads(openfile.read())
+        return read_json(args["--file"])
 
     print("Reading JSON data from stdin...")
     try:
