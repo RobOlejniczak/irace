@@ -77,18 +77,22 @@ def fetch_league(args: dict, client: Client) -> None:
     _success(args, category, int(league is not None))
 
 
-def fetch_seasons(args: dict, client: Client) -> None:
+def fetch_seasons(args: dict, client: Client) -> list:
     """Main function to list seasons active in the league."""
 
     category = _category("seasons", args["--club"])
     results = 0
 
+    season_ids = []
+
     for season in client.league_seasons(league_id=args["--club"]):
         if season:
             _write_result(args, category, season["league_season_id"], season)
             results += 1
+            season_ids.append(season["league_season_id"])
 
     _success(args, category, results)
+    return season_ids
 
 
 def fetch_members(args: dict, client: Client) -> None:
@@ -135,9 +139,6 @@ def fetch_results(args: dict, client: Client) -> None:
                 _fetch_laps(args, client, session_result)
 
         _success(args, category, results)
-
-    else:
-        raise SystemExit("Could not fetch any results :(\n{!r}".format(args))
 
 
 def _fetch_laps(args: dict, client: Client, session: dict) -> None:
@@ -239,8 +240,10 @@ def main() -> None:
     else:
         fetch_league(args, client)
         fetch_members(args, client)
-        fetch_seasons(args, client)
-        fetch_results(args, client)
+        seasons = fetch_seasons(args, client)
+        for season in seasons:
+            args["--season"] = season
+            fetch_results(args, client)
 
 
 if __name__ == "__main__":
