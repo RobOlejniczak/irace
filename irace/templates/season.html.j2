@@ -5,7 +5,7 @@
   <script type="text/javascript" language="javascript" src="https://cdn.datatables.net/1.10.20/js/jquery.dataTables.min.js"></script>
   <script type="text/javascript" class="init">
    $(document).ready(function() {
-     $("#results").DataTable({
+     $("#standings").DataTable({
        "order": [[ 1, "asc" ]],
        "lengthMenu": [[25, -1], [25, "All"]]
      });
@@ -22,11 +22,11 @@
    {%- endfor %}
   </div>
   <div class="center large"><p>Season Standings:</p></div>
-  <table id="results" class="display compact">
+  <table id="standings" class="display compact">
    <thead>
     <tr>
      <th>Name</th>
-     <td>Position</td>
+     <th>Position</th>
      <th>Points</th>
      <th>Races</th>
      <th>Wins</th>
