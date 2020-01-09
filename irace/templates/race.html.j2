@@ -1,9 +1,5 @@
-<!DOCTYPE html>
-<html lang="en-US">
- <head>
-  <meta charset="utf-8">
+{% include "head.html" %}
   <title>{{ league["leaguename"] }} at {{ race.race["track_name"] }}</title>
-  <link rel="stylesheet" type="text/css" href="/style.css">
   <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.20/css/jquery.dataTables.min.css">
   <script type="text/javascript" language="javascript" src="https://code.jquery.com/jquery-3.3.1.js"></script>
   <script type="text/javascript" language="javascript" src="https://cdn.datatables.net/1.10.20/js/jquery.dataTables.min.js"></script>
@@ -17,7 +13,6 @@
       "lengthMenu": [[20, -1], [20, "All"]]
     });
   });
-
   var lastOpened;
   function showLaps(driver) {
    hideLaps();
@@ -25,14 +20,12 @@
       lastOpened = driver;
     });
   }
-
   function hideLaps() {
     if (lastOpened != null) {
       $("#laps-" + lastOpened).slideUp(100);
       lastOpened = null;
     }
   }
-
   $(document).click(function(event) {
     ele = event.target;
     if (ele == null) {
@@ -50,11 +43,11 @@
       ele = ele.parentElement;
     }
   })
-
   </script>
  </head>
  <body>
-  <p><a href='/{{ league["leagueid"] }}.html'>{{ league["leaguename"] }}</a> <a href='/{{ league["leagueid"] }}/seasons/{{ season["league_season_id"] }}.html'>{{ season["league_season_name"] }}</a> at {{ race.race["track_name"] }}</p>
+{% include "banner.html" %}
+  <h1><a href='/{{ league["leagueid"] }}.html'>{{ league["leaguename"] }}</a> <a href='/{{ league["leagueid"] }}/seasons/{{ season["league_season_id"] }}.html'>{{ season["league_season_name"] }}</a> at {{ race.race["track_name"] }}</h1>
   <table id="results" class="display compact">
    <thead>
     <tr>

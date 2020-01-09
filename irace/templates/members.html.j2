@@ -1,11 +1,8 @@
-<!DOCTYPE html>
-<html lang="en-US">
- <head>
-  <meta charset="utf-8">
+{% include "head.html" %}
   <title>{{ league["leaguename"] }} league members</title>
-  <link rel="stylesheet" type="text/css" href="/style.css">
  </head>
  <body>
+{% include "banner.html" %}
   <p><a href='/{{ league["leagueid"] }}.html'>{{ league["leaguename"] }}</a> league members</p>
   {%- for member in members %}
   <p><a href='/{{ league["leagueid"] }}/members/{{ member.custID }}.html'>{{ member.displayName }}</a></p>

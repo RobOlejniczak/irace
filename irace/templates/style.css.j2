@@ -1,13 +1,20 @@
+{% include "fork.css" %}
 body {
   background-color: #eee;
   color: #000;
+  margin: 0;
+  padding-bottom: 0.25em;
+}
+p {
+  margin: 0;
+  padding: 0;
 }
 .laps {
   background-color: #ddd;
   width: 400px;
   display: none;
   position: absolute;
-  top: 99px;
+  top: 158px;
   left: calc(50% - 200px);
   margin: 0 auto;
   border: 5px solid #444;
@@ -26,4 +33,36 @@ body {
 }
 .hideX>a {
   text-decoration: none;
+}
+h1 {
+  font-weight: 600;
+  text-align: center;
+  font-size: x-large;
+  min-height: 158px;
+  line-height: 158px;
+  margin: 0 0 0.25em;
+}
+h1, .bottomBorder {
+  border-bottom: 2px solid #444;
+}
+.large {
+  font-size: x-large;
+}
+.large>p {
+  margin: 1em;
+}
+.small {
+  font-size: small;
+}
+.center {
+  text-align: center;
+  margin: 0 auto;
+}
+.bottom {
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+}
+.fork-me {
+  background-color: green;
 }

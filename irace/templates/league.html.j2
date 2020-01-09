@@ -1,19 +1,16 @@
-<!DOCTYPE html>
-<html lang="en-US">
- <head>
-  <meta charset="utf-8">
+{% include "head.html" %}
   <title>{{ league["leaguename"] }}</title>
-  <link rel="stylesheet" type="text/css" href="/style.css">
  </head>
  <body>
-  <div id="seasons">
-   <p>{{ league["leaguename"] }} seasons</p>
+{% include "banner.html" %}
+  <h1>{{ league["leaguename"] }} Seasons</h1>
+  <div class="center large">
    {%- for season in seasons %}
    <p><a href='/{{ league["leagueid"] }}/seasons/{{ season["league_season_id"] }}.html'>{{ season["league_season_name"] }}</a></p>
    {%- endfor %}
   </div>
-  <div id="members">
-   <p><a href='/{{ league["leagueid"] }}/members.html'>Member list</a></p>
+  <div class="center bottom">
+   <p><a href="/">All Leagues</a></p>
   </div>
  </body>
 </html>
