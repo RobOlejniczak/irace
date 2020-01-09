@@ -90,6 +90,7 @@
   {%- for laps in race.laps %}
   <div id='laps-{{ laps.driver_id }}' class="laps">
    <p>{{ laps.driver }} laps driven</p>
+   <div class="hideX"><a href="javascript:hideLaps()" title="Close">x</a></div>
    <table id='{{ laps.driver_id }}-laps' class="display compact lapdata">
     <thead>
      <tr>
