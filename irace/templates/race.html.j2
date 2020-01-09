@@ -42,10 +42,7 @@
     if (ele.getElementsByClassName("laps").length) {
       return;
     }
-    while (true) {
-      if (ele == null || ele.classList.contains("laps")) {
-        break;
-      }
+    while (ele != null && !ele.classList.contains("laps")) {
       if (ele.tagName == "BODY") {
         hideLaps();
         break;
