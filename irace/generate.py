@@ -225,7 +225,6 @@ def _write_seasons(templates: dict, base_path: str, seasons: list,
                     season=season["season"],
                     race=race_obj,
                     league=league_info,
-                    drivers=race["laps"],
                 ),
                 os.path.join(
                     base_path,
@@ -234,24 +233,6 @@ def _write_seasons(templates: dict, base_path: str, seasons: list,
                     "{}.html".format(race["race"]["subsessionid"]),
                 )
             )
-            for laps in race["laps"]:
-                for driver in laps.drivers:
-                    _write_file(
-                        templates["laps.html"].render(
-                            season=season["season"],
-                            race=race["race"],
-                            laps=laps,
-                            driver=driver,
-                            league=league_info,
-                        ),
-                        os.path.join(
-                            base_path,
-                            "seasons",
-                            str(season["season"]["league_season_id"]),
-                            str(race["race"]["subsessionid"]),
-                            "{}.html".format(driver["custid"]),
-                        )
-                    )
 
         _write_file(
             templates["season.html"].render(

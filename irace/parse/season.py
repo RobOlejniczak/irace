@@ -8,7 +8,7 @@ def _incidents_per_corner(race: dict, result: dict) -> float:
     """Calculate the average incidents per corner for the race."""
 
     # XXX corners complete isn't exposed as far as I can tell...
-    corners_complete = race["cornersperlap"] * result["lapscomplete"]
+    corners_complete = race["cornersperlap"] * (result["lapscomplete"] + 1)
     if corners_complete:
         return result["incidents"] / corners_complete
     return -1.0
