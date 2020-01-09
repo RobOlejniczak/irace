@@ -26,6 +26,7 @@ Options:
 """
 
 
+import io
 import os
 import json
 
@@ -171,8 +172,14 @@ def _write_result(args: dict, category: tuple, _id: str, obj: object) -> None:
         directory = args["--output"]
 
     _file = os.path.join(_ensure_directory(directory), "{}.json".format(_id))
-    with open(_file, "w") as open_results:
-        open_results.write(json.dumps(obj, sort_keys=True, indent=4, ensure_ascii=False))
+
+    with io.open(_file, "w", encoding="utf-8") as open_results:
+        open_results.write(json.dumps(
+            obj,
+            sort_keys=True,
+            indent=4,
+            ensure_ascii=False,
+        ))
 
 
 def _ensure_directory(file_path: str) -> str:
