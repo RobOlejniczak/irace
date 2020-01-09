@@ -14,7 +14,7 @@
       "lengthMenu": [[25, -1], [25, "All"]]
     });
     $(".lapdata").DataTable({
-      "lengthMenu": [[50, -1], [50, "All"]]
+      "lengthMenu": [[20, -1], [20, "All"]]
     });
   });
 
@@ -43,11 +43,11 @@
       return;
     }
     while (true) {
-      if (ele == null || ele.tagName == "BODY") {
-        hideLaps();
+      if (ele == null || ele.classList.contains("laps")) {
         break;
       }
-      if (ele.classList.contains("laps")) {
+      if (ele.tagName == "BODY") {
+        hideLaps();
         break;
       }
       ele = ele.parentElement;
