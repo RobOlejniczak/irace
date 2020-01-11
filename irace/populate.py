@@ -16,13 +16,13 @@ Options:
     --club=<id>          iRacing.com club/league ID [default: 637]
     --car=<id>           car ID in the club to pull results from [default: -1]
     --year=<id>          year to pull results from [default: -1]
-    --season=<id>        season to pull results from [default: 47806]
+    --season=<id>        season to pull results from
     --week=<id>          week of season to pull results from [default: -1]
     --output=<path>      output directory [default: results]
     --league             populate basic information about the club/league
     --seasons            populate seasons for the club/league
     --members            populate members for the club/league
-    --races              populate race and lap data for the club's season
+    --races              populate race and lap data for the club's seasons
 """
 
 
@@ -56,14 +56,70 @@ def _success(args: dict, category: tuple, results: int) -> None:
             "s" * int(results != 1),
             out_dir,
         ))
-    else:
-        print("No results found for: {}".format(out_dir))
 
 
 def _category(*args) -> tuple:
     """Ensure all category levels are strings."""
 
     return tuple(str(x) for x in args)
+
+
+def _output_path(args: dict, category: tuple, _id: str) -> str:
+    """Return the output file path for this object.
+
+    Side-effect, creates the directory structure if needed.
+    """
+
+    if category:
+        directory = os.path.join(args["--output"], *category)
+    else:
+        directory = args["--output"]
+
+    return os.path.join(_ensure_directory(directory), "{}.json".format(_id))
+
+
+def _output_exists(args: dict, category: tuple, _id: str) -> bool:
+    """Check if the output file exists locally with content."""
+
+    file_path = _output_path(args, category, _id)
+    return os.path.exists(file_path) and os.path.getsize(file_path) > 0
+
+
+def _write_result(args: dict, category: tuple, _id: str, obj: object) -> None:
+    """Write the result to file."""
+
+    file_path = _output_path(args, category, _id)
+
+    with io.open(file_path, "w", encoding="utf-8") as open_results:
+        open_results.write(json.dumps(
+            obj,
+            sort_keys=True,
+            indent=4,
+            ensure_ascii=False,
+        ))
+
+
+def _ensure_directory(file_path: str) -> str:
+    """Ensures the directory at file_path exists.
+
+    Returns:
+        string absolute file_path
+    """
+
+    if not os.path.isabs(file_path):
+        file_path = os.path.abspath(file_path)
+
+    if os.path.exists(file_path) and not os.path.isdir(file_path):
+        raise SystemExit(
+            "Output directory {} already exists, as a file. Bailing.".format(
+                file_path
+            )
+        )
+
+    if not os.path.exists(file_path):
+        os.makedirs(file_path)
+
+    return file_path
 
 
 def fetch_league(args: dict, client: Client) -> None:
@@ -121,7 +177,7 @@ def fetch_standings(args: dict, client: Client) -> None:
 
 
 def fetch_results(args: dict, client: Client) -> None:
-    """Main function to fetch league results."""
+    """Main function to fetch unknown league results."""
 
     events = client.league_season_calendar(args["--club"], args["--season"])
 
@@ -132,6 +188,9 @@ def fetch_results(args: dict, client: Client) -> None:
 
         for event in events["rows"]:
             sub_session_id = event["subsessionid"]
+            if _output_exists(args, category, sub_session_id):
+                continue
+
             session_result = client.session_results(sub_session_id)
             if session_result:
                 _write_result(args, category, sub_session_id, session_result)
@@ -164,46 +223,13 @@ def _fetch_laps(args: dict, client: Client, session: dict) -> None:
     _success(args, category, results)
 
 
-def _write_result(args: dict, category: tuple, _id: str, obj: object) -> None:
-    """Write the result to file."""
+def fetch_races(args: dict, client: Client) -> None:
+    """Fetch any unknown races in all seasons."""
 
-    if category:
-        directory = os.path.join(args["--output"], *category)
-    else:
-        directory = args["--output"]
-
-    _file = os.path.join(_ensure_directory(directory), "{}.json".format(_id))
-
-    with io.open(_file, "w", encoding="utf-8") as open_results:
-        open_results.write(json.dumps(
-            obj,
-            sort_keys=True,
-            indent=4,
-            ensure_ascii=False,
-        ))
-
-
-def _ensure_directory(file_path: str) -> str:
-    """Ensures the directory at file_path exists.
-
-    Returns:
-        string absolute file_path
-    """
-
-    if not os.path.isabs(file_path):
-        file_path = os.path.abspath(file_path)
-
-    if os.path.exists(file_path) and not os.path.isdir(file_path):
-        raise SystemExit(
-            "Output directory {} already exists, as a file. Bailing.".format(
-                file_path
-            )
-        )
-
-    if not os.path.exists(file_path):
-        os.makedirs(file_path)
-
-    return file_path
+    seasons = fetch_seasons(args, client)
+    for season in seasons:
+        args["--season"] = season
+        fetch_results(args, client)
 
 
 def validate_integer_arguments(args) -> None:
@@ -215,7 +241,7 @@ def validate_integer_arguments(args) -> None:
 
     for arg in ("--car", "--club", "--season", "--week", "--year"):
         try:
-            args[arg] = int(args[arg])
+            args[arg] = int(args[arg] or 0)
         except ValueError:
             raise SystemExit("Invalid value for {}: {}".format(arg, args[arg]))
 
@@ -236,14 +262,14 @@ def main() -> None:
     elif args.pop("--members"):
         fetch_members(args, client)
     elif args.pop("--races"):
-        fetch_results(args, client)
+        if args["--season"]:
+            fetch_results(args, client)
+        else:
+            fetch_races(args, client)
     else:
         fetch_league(args, client)
         fetch_members(args, client)
-        seasons = fetch_seasons(args, client)
-        for season in seasons:
-            args["--season"] = season
-            fetch_results(args, client)
+        fetch_races(args, client)
 
 
 if __name__ == "__main__":
