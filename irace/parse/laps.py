@@ -41,7 +41,7 @@ class Lap:
     def __init__(self, data: dict, prev: int):
         self.flags = _get_flags(data["flags"])
         self.flag_names = tuple([x.name for x in self.flags])
-        self.lap = data["lap_num"] + 1
+        self.lap = data["lap_num"]
         self.time = as_timedelta(data["ses_time"] - prev)
 
 
@@ -176,6 +176,8 @@ class Laps:
         total_lap_time = 0.0
         valid_laps = 0
         for lap in self.laps:
+            if lap.lap == 0:
+                continue
             lap_is_valid = True
             for flag in lap.flags:
                 if flag.mask == 1:  # invalid lap

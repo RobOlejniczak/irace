@@ -42,7 +42,8 @@ class Driver:  # pylint: disable=R0902
         self.driver_id = result["custid"]
 
         self.races += 1
-        self.points += result["league_points"] or 0
+        self.points += (result["league_points"] or 0) if \
+            result["league_points"] > 0 else 0
         self.wins += 1 if result["finishpos"] == 0 else 0
         self.podiums += 1 if result["finishpos"] < 3 else 0
         self.top5 += 1 if result["finishpos"] < 5 else 0

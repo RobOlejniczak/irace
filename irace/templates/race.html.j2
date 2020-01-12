@@ -71,7 +71,7 @@
      <td>{{ result["finishpos"] + 1 }}</td>
      <td>{{ result["startpos"] + 1 }}</td>
      <td>{{ result["reasonout"] }}</td>
-     <td><a href='javascript:showLaps({{ result["custid"] }})'>{{ result["lapscomplete"] + 1 }}</a></td>
+     <td><a href='javascript:showLaps({{ result["custid"] }})'>{{ result["lapscomplete"] }}</a></td>
      <td>{% if result["bestlapnum"] > 0 %}{{ result["bestlapnum"] }}{% else %}-{% endif %}</td>
      <td>{{ time_string_raw(result["bestlaptime"]) }}</td>
      <td>{{ result["incidents"] }}</td>
@@ -96,7 +96,7 @@
      {%- for lap in laps.laps %}
      <tr>
       <td>{{ lap.lap }}</td>
-      <td>{{ time_string(lap.time) }}</td>
+      <td>{% if lap.lap == 0 %}--:--{% else %}{{ time_string(lap.time) }}{% endif %}</td>
       <td>{{ ", ".join(lap.flag_names) }}</td>
      </tr>
      {%- endfor %}
