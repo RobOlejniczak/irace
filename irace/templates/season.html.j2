@@ -17,7 +17,7 @@
   <h1><a href='/{{ league["leagueid"] }}.html'>{{ league["leaguename"] }}</a> {{ season.season["league_season_name"] }}</h1>
   <div class="center large bottomBorder">
    <p>Race results:</p>
-   {%- for race in races %}
+   {%- for race in races|sort(attribute="subsessionid") %}
    <p><a href='/{{ league["leagueid"] }}/seasons/{{ season.season["league_season_id"] }}/{{ race["subsessionid"] }}.html'>{{ race["track_name"] }}</a></p>
    {%- endfor %}
   </div>
