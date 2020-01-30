@@ -40,6 +40,7 @@ from .utils import get_args
 from .storage import Server
 from .storage import Databases
 from .generate import driver_results
+from .parse.utils import random_color
 from .parse.utils import time_string
 from .parse.utils import time_string_raw
 from .stats.logger import log
@@ -59,6 +60,7 @@ def inject_irace_host():
     return dict(
         time_string=time_string,
         time_string_raw=time_string_raw,
+        random_color=random_color,
     )
 
 

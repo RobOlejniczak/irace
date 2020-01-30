@@ -1,14 +1,15 @@
 {% include "head.html" %}
   <title>{{ league["leaguename"] }} at {{ race.race["track_name"] }}</title>
   <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.20/css/jquery.dataTables.min.css">
+  <link rel="stylesheet" type="text/css" href="/js/Chart.min.css"></script>
   <script type="text/javascript" language="javascript" src="https://code.jquery.com/jquery-3.3.1.js"></script>
   <script type="text/javascript" language="javascript" src="https://cdn.datatables.net/1.10.20/js/jquery.dataTables.min.js"></script>
   <script type="text/javascript" language="javascript" src="/js/moment.min.js"></script>
   <script type="text/javascript" language="javascript" src="/js/datetime.js"></script>
-  <script type="text/javascript" language="javascript" class="init">
-  $(document).ready(function() {
-{% include "race.js" %}
-  })
+  <script type="text/javascript" language="javascript" src="/js/Chart.min.js"></script>
+  <script type="text/javascript" language="javascript" src="/js/race.js"></script>
+  <script type="text/javascript" language="javascript">
+    {% include "race.js" %}
   </script>
  </head>
  <body>
@@ -96,5 +97,11 @@
    </table>
   </div>
   {%- endfor %}
+  <div id="toggleLaps" class="center large">
+   <a href="javascript:toggleLaps()" class="gray">Lap Times Chart (click to <span id="toggleLapsState">show</span>)</a>
+  </div>
+  <div id="lapTimeChart" class="chartContainer" hidden=true>
+   <canvas id="lapTimesChart" width="400" height="400"></canvas>
+  </div>
  </body>
 </html>

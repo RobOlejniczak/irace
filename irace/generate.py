@@ -31,6 +31,7 @@ from .parse import Race
 from .parse import Season
 from .storage import Server
 from .storage import Databases
+from .parse.utils import random_color
 from .parse.utils import time_string
 from .parse.utils import time_string_raw
 from .stats.logger import log
@@ -122,6 +123,7 @@ def _get_templates() -> dict:
     # jinja2 helpers
     env.globals["time_string"] = time_string
     env.globals["time_string_raw"] = time_string_raw
+    env.globals["random_color"] = random_color
 
     return {
         os.path.splitext(t)[0]: env.get_template(t)
@@ -310,7 +312,11 @@ def _write_top_level(args: dict, data: dict, templates: dict) -> None:
         os.path.join(args["--output"], "index.html"),
     )
 
-    for js_file in ("moment.min.js", "datetime.js"):
+    # ignore the js files used only by iRace admin
+    excluded = ("socket.io.slim.js", "socket.io.slim.js.map", "style.css")
+    for js_file in os.listdir("static"):
+        if js_file in excluded:
+            continue
         _write_file(
             _read_file(os.path.join("static", js_file)),
             os.path.join(args["--output"], "js", js_file)

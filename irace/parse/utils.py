@@ -1,6 +1,7 @@
 """Generic parsing utilities."""
 
 
+import random
 from datetime import timedelta
 
 
@@ -57,3 +58,19 @@ def suffix(number: int) -> str:
     if number != 13 and number % 10 == 3:
         return "rd"
     return "th"
+
+
+def random_color(min_avg=0, max_avg=160) -> str:
+    """Return a random hex color code with averages between min and max."""
+
+    def _random_rgb() -> tuple:
+        return (
+            random.randint(0, 255),
+            random.randint(0, 255),
+            random.randint(0, 255),
+        )
+
+    while True:
+        rgb = _random_rgb()
+        if min_avg < (sum(rgb) / 3) < max_avg:
+            return "#{}".format("".join("{:02X}".format(x) for x in rgb))
