@@ -5,7 +5,6 @@ Web frontend for iRacing league results.
 
 ## Installation
 
-
 ```bash
 git clone https://github.com/a-tal/irace.git
 cd irace
@@ -13,59 +12,41 @@ pip install .
 ```
 
 
-## Fetching data from iRacing
+## Included utilities
 
-**Set the environment variables `IRACING_USERNAME` and `IRACING_PASSWORD` to
-your iRacing.com account credentials.**
+Several command line utilities are included with iRace. These are here mostly
+for development purposes, iRace admin (see below) is intended to negate the
+need to use any of these. Use `--help` with any command for usage details.
 
-*After using any of the `irace-populate` commands, run `irace-generate` to
-regenerate the html from templates and the updated data.*
+Command          | Description
+-----------------|-------------------------------
+`irace-populate` | Pull new data from iRacing.com
+`irace-lap`      | Parse a laps JSON file
+`irace-results`  | Parse a race JSON file
+`irace-generate` | Generate HTML files
+`irace-league`   | Display basic league information
+`irace-storage`  | CouchDB connection test, can migrate to/from files
+`irace-web`      | Start a web frontend to serve templated files (see note)
+`irace-admin`    | Start the iRace admin frontend (required `admin` extras)
 
+### `irace-web`
 
-### Find your league ID
-
-```bash
-irace-league "name of your club"
-```
-
-Look for "leagueid" in the output
-
-
-### First time only
-
-
-With no other arguments this will fetch all data relevant to your league.
-Only do this once, schedule other updates as appropriate.
-
-```
-irace-populate --club=<id>
-```
-
-### After a race
-
-
-You can also limit this to a single season if desired. It will also update the
-calendar for seasons queried.
-
-```
-irace-populate --club=<id> --races
-```
-
-### Occasionally for new members
-
-This will populate their driver details page. New members can still race and
-show up in results without this being ran, it's only for the overview.
-
-```
-irace-populate --club=<id> --members
-```
+`irace-web` is an alternative way of developing the frontend templates which
+removes the need to run `irace-generate` after making template changes.
+However, because each page is being generated live, the responses from
+`irace-web` can take a bit of time (especially the driver details view).
 
 
 ## iRace-admin
 
-There is an included Dockerfile to run an accompanying service to monitor
+There is a `docker-compose.yml` to run an accompanying service to monitor
 seasons in leagues and automatically pull race data, regenerate HTML and
 push the resulting files to your iRace webhost.
+
+This service can also be used to occasionally refresh the memberlist of
+tracked leagues (no automatic scheduling exists for this at this time),
+add or remove leagues from tracking, and see when the last and next
+times each season in each tracked league refreshed.
 
 ### .env
 

@@ -55,12 +55,12 @@ setup(
         "requests >= 2.2.0",
         "docopt >= 0.6.1",
         "jinja2 >= 2.10.3",
+        "couchdb >= 1.2",
+        "flask >= 1.1.1",
     ],
     extras_require={
         "admin": [
-            "flask >= 1.1.1",
             "gevent >= 1.4.0",
-            "couchdb >= 1.2",
             "Flask-SocketIO >= 4.2.1",
         ],
     },
