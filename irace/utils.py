@@ -33,8 +33,8 @@ def get_args(doc: str) -> dict:
     return args
 
 
-def get_client(args) -> Client:
-    """Creates the stats.Client with the credentials passed."""
+def config_client(args) -> None:
+    """Configures the stats.Client with the credentials passed."""
 
     args["--user"] = args["--user"] or os.getenv("IRACING_USERNAME")
     args["--passwd"] = args["--passwd"] or os.getenv("IRACING_PASSWORD")
@@ -45,13 +45,38 @@ def get_client(args) -> Client:
         except KeyboardInterrupt:
             raise SystemExit("Interrupted")
 
+    Client.set_debug(args["--debug"])
+
     if args["--passwd"]:
-        client = Client(args["--user"], args["--passwd"], args["--debug"])
+        Client.set_credentials(args["--user"], args["--passwd"])
     else:
-        client = Client(args["--user"], getpass(), args["--debug"])
+        Client.set_credentials(args["--user"], getpass())
 
     args.pop("--user")
     args.pop("--passwd")
     args.pop("--debug")
 
-    return client
+    return Client
+
+
+def ensure_directory(file_path: str) -> str:
+    """Ensures the directory at file_path exists.
+
+    Returns:
+        string absolute file_path
+    """
+
+    if not os.path.isabs(file_path):
+        file_path = os.path.abspath(file_path)
+
+    if os.path.exists(file_path) and not os.path.isdir(file_path):
+        raise SystemExit(
+            "Output directory {} already exists, as a file. Bailing.".format(
+                file_path
+            )
+        )
+
+    if not os.path.exists(file_path):
+        os.makedirs(file_path)
+
+    return file_path

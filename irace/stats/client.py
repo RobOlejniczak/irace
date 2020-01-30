@@ -1,7 +1,9 @@
 """Stats client."""
 
 
+import os
 import json
+import time
 import atexit
 from urllib.parse import urlencode
 
@@ -97,14 +99,13 @@ class _Client:
 class Stats:  # pylint: disable=R0904
     """iRacing stats client."""
 
-    def __init__(self, username: str, password: str, debug=False):
+    def __init__(self):
         """Create a new stats client."""
 
-        self.cookie = ""
-        self.customer_id = 0
+        self.num_requests = 0
 
-        self.debug = debug
-        set_log_level(self.debug)
+        self._debug = False
+        self.set_debug(bool(int(os.getenv("IRACE_DEBUG") or 0)))
 
         self.cache = {
             "tracks": {},
@@ -116,28 +117,100 @@ class Stats:  # pylint: disable=R0904
             "year_and_quarter": (None, None),
         }
 
-        resp = self._req(
-            URLs.LOGIN,
-            data={
-                "username": username,
-                "password": password,
+        self.__auth = {
+            "last": 0,  # timestamp of last succesful login
+            "min": 7200,  # minimum seconds to keep cookie for (2hr)
+            "max": 21600,  # maximum seconds to keep cookie for (6hr)
+            "cookie": "",
+            "custid": int(os.getenv("IRACING_CUSTID") or 0),
+            "url": os.getenv("IRACING_LOGIN") or URLs.LOGIN,
+            "data": {
+                "username": os.getenv("IRACING_USERNAME"),
+                "password": os.getenv("IRACING_PASSWORD"),
                 "utcoffset": 300,
                 "todaysdate": "",
             },
-            options=RequestOptions(
-                ParsingOptions(login=True, json_response=False),
-            ),
+        }
+
+    def set_debug(self, debug: bool) -> None:
+        """Set the logging level."""
+
+        self._debug = debug
+        set_log_level(debug)
+
+    def set_credentials(self, username: str = "", password: str = "") -> None:
+        """Update the auth credentials."""
+
+        if username:
+            self.__auth["data"]["username"] = username
+
+        if password:
+            self.__auth["data"]["password"] = password
+
+    def login(self, username: str = "", password: str = "",
+              force: bool = False) -> None:
+        """Perform the login procedure."""
+
+        self.set_credentials(username, password)
+
+        if force or (self.__auth["last"] < (time.time() - self.__auth["min"])):
+            log.info("Performing login")
+            self._req(
+                self.__auth["url"],
+                data=self.__auth["data"],
+                options=RequestOptions(
+                    ParsingOptions(login=True, json_response=False),
+                ),
+            )
+            self.__auth["last"] = time.time()
+
+        self._populate_cache(force)
+
+    def _populate_cache(self, force: bool = False):
+        """Gets general information from iRacing service.
+
+        For eg; current tracks, cars, series, etc. Fills in self.cache.
+        """
+
+        if self.cache.get("__populated") and not force:
+            return
+
+        log.info("Populating cache")
+
+        resp = self._req(
+            URLs.CACHE,
+            options=RequestOptions(ParsingOptions(json_response=False)),
         )
 
-        # can we please get a normal login procedure? thanks in advance...
-        if "irsso_members" in self.cookie:
-            # new programmers look away, this is not how you do it
-            ind = resp.index("js_custid")
-            self.customer_id = int(resp[ind + 11: resp.index(";", ind)])
+        try:
+            self.__auth["custid"] = int([
+                x for x in resp.splitlines()
+                if x.lstrip().startswith("custid:")
+            ][0].split(":")[1].split(",")[0])
+        except Exception as error:
+            log.warning("Unable to extract custID: %r", error)
+            return
 
-            self._populate_cache(resp)
-        else:
-            raise SystemExit("Invalid login for: {}".format(username))
+        items = {
+            "tracks": "TrackListing",
+            "cars": "CarListing",
+            "car_class": "CarClassListing",
+            # "club": "ClubListing",  # broken
+            "season": "SeasonListing",
+            "division": "DivisionListing",
+            "year_and_quarter": "YearAndQuarterListing"
+        }
+
+        errored = False
+        for item, key in items.items():
+            try:
+                self.cache[item] = utils.get_irservice_var(key, resp)
+            except Exception as error:
+                log.warning("Failed to parse %s: %r", item, error)
+                errored = True
+
+        if not errored:
+            self.cache["__populated"] = True
 
     def __del__(self):
         """Standard destructor method."""
@@ -151,18 +224,25 @@ class Stats:  # pylint: disable=R0904
         if options is None:
             options = RequestOptions()
 
+        if not options.parsing.login and (
+                not self.__auth["last"] or self.__auth["last"] < (
+                    time.time() - self.__auth["max"])):
+            self.login()
+
         resp = _Client.send_request(
             self._get_request(url, data=data, options=options)
         )
 
+        self.num_requests += 1
+
         resp.raise_for_status()
 
         if options.parsing.login and "Set-Cookie" in resp.headers:
-            self.cookie = resp.headers["Set-Cookie"]
+            self.__auth["cookie"] = resp.headers["Set-Cookie"]
             # Must get irsso_members from another header. wtf...
             if "cookie" in resp.request.headers:
                 # holy moly...
-                self.cookie += ";" + resp.request.headers["cookie"]
+                self.__auth["cookie"] += ";" + resp.request.headers["cookie"]
 
         if not options.parsing.login:
             header = " ".join((
@@ -172,7 +252,8 @@ class Stats:  # pylint: disable=R0904
                 str(resp.status_code),
                 "*" * 15,
             ))
-            log.debug(
+            log.log(
+                5,
                 "\n%s\nreq data: %r\nreq headers: %r\n"
                 "resp headers: %r\nresp data: %r\n%s",
                 header,
@@ -195,8 +276,8 @@ class Stats:  # pylint: disable=R0904
         url = URLs.get(url)
 
         headers = {}
-        if self.cookie:
-            headers["cookie"] = self.cookie
+        if self.__auth["cookie"] and not options.parsing.login:
+            headers["cookie"] = self.__auth["cookie"]
 
         options.merge_headers(headers)
 
@@ -215,29 +296,6 @@ class Stats:  # pylint: disable=R0904
             headers=headers,
         )
 
-    def _populate_cache(self, response):
-        """Gets general information from iRacing service.
-
-        For eg; current tracks, cars, series, etc. Fills in self.cache.
-        """
-
-        items = {
-            "tracks": "TrackListing",
-            "cars": "CarListing",
-            "car_class": "CarClassListing",
-            "club": "ClubListing",
-            "season": "SeasonListing",
-            "division": "DivisionListing",
-            "year_and_quarter": "YearAndQuarterListing"
-        }
-
-        for item, key in items.items():
-            try:
-                self.cache[item] = utils.get_irservice_var(key, response)
-            except Exception as error:
-                log.error("Failed to parse %s: %r", item, error)
-                raise  # if this happens iRacing is probably down
-
     @utils.untested
     def irating_chart(self, customer_id=None, category=Charts.ROAD):
         """Gets the iRating data of a driver using its customer_id.
@@ -246,7 +304,7 @@ class Stats:  # pylint: disable=R0904
         """
 
         return self._req(
-            URLs.STATS_CHART % (customer_id or self.customer_id, category)
+            URLs.STATS_CHART % (customer_id or self.__auth["custid"], category)
         )
 
     @utils.untested
@@ -259,19 +317,25 @@ class Stats:  # pylint: disable=R0904
     def career_stats(self, customer_id=None):
         """Gets career stats (top5, top 10, etc.) of customer_id."""
 
-        return self._req(URLs.CAREER_STATS % (customer_id or self.customer_id))
+        return self._req(
+            URLs.CAREER_STATS % (customer_id or self.__auth["custid"])
+        )
 
     @utils.untested
     def yearly_stats(self, customer_id=None):
         """Gets yearly stats (top5, top 10, etc.) of customer_id."""
 
-        return self._req(URLs.YEARLY_STATS % (customer_id or self.customer_id))
+        return self._req(
+            URLs.YEARLY_STATS % (customer_id or self.__auth["custid"])
+        )
 
     @utils.untested
     def cars_driven(self, customer_id=None):
         """Gets list of cars driven by customer_id."""
 
-        return self._req(URLs.CARS_DRIVEN % (customer_id or self.customer_id))
+        return self._req(
+            URLs.CARS_DRIVEN % (customer_id or self.__auth["custid"])
+        )
 
     @utils.untested
     def personal_best(self, customer_id=None, car_id=0):
@@ -281,7 +345,7 @@ class Stats:  # pylint: disable=R0904
             raise ValueError("car_id not known: %d" % car_id)
 
         return self._req(
-            URLs.PERSONAL_BEST % (car_id, customer_id or self.customer_id)
+            URLs.PERSONAL_BEST % (car_id, customer_id or self.__auth["custid"])
         )
 
     @utils.untested
@@ -297,7 +361,7 @@ class Stats:  # pylint: disable=R0904
         """Gets stats of last races (10 max?) of customer_id."""
 
         return self._req(
-            URLs.LAST_RACE_STATS % (customer_id or self.customer_id)
+            URLs.LAST_RACE_STATS % (customer_id or self.__auth["custid"])
         )
 
     @utils.untested
@@ -313,12 +377,12 @@ class Stats:  # pylint: disable=R0904
             tuple of (results, total_pages)
         """
 
-        data = drivers.post_data(self.customer_id, query, page)
+        data = drivers.post_data(self.__auth["custid"], query, page)
 
         try:
             res = self._req(URLs.DRIVER_STATS, data=data)
             # magic number 29 is customer_id
-            if int(res["d"]["r"][0]["29"]) == int(self.customer_id):
+            if int(res["d"]["r"][0]["29"]) == int(self.__auth["custid"]):
                 return (
                     utils.format_results(res["d"]["r"][1:], res["m"]),
                     res["d"]["32"]
@@ -342,7 +406,11 @@ class Stats:  # pylint: disable=R0904
         (Pages.NUM_ENTRIES) results max.
         """
 
-        data = search.post_data(query, customer_id or self.customer_id, page)
+        data = search.post_data(
+            query,
+            customer_id or self.__auth["custid"],
+            page
+        )
         res = self._req(URLs.RESULTS_ARCHIVE, data=data)
 
         if res["d"]:
@@ -471,7 +539,7 @@ class Stats:  # pylint: disable=R0904
             URLs.SESSION_RESULTS,
             data={
                 "subsessionID": sub_session_id,
-                "custid": self.customer_id,
+                "custid": self.__auth["custid"],
             },
         )
 
@@ -620,3 +688,6 @@ class Stats:  # pylint: disable=R0904
             if result["leagueid"] == league_id:
                 return result
         return None
+
+
+Client = Stats()  # pylint: disable=invalid-name

@@ -75,6 +75,7 @@ class URLs:
 
     BASE = "https://members.iracing.com"
     LOGIN = "membersite/Login"
+    CACHE = "membersite/member/EventResult.do?subsessionid=0"
 
     # TODO - confirm these, I think most/all can be POST w/o args
     IRACING_HOME = "membersite/member/Home.do"

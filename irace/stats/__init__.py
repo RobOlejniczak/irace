@@ -4,4 +4,4 @@ This code was initially forked from https://github.com/jeysonmc/ir_webstats
 """
 
 
-from .client import Stats as Client  # noqa: F401
+from .client import Client  # noqa: F401

@@ -5,7 +5,7 @@
 {% include "banner.html" %}
   <h1><a href="https://github.com/a-tal/irace">iRace</a> Tracked Leagues</h1>
   <div class="center large">
-   {%- for league in leagues %}
+   {%- for league in leagues|sort(attribute="leagueid") %}
    <p><a href='/{{ league["leagueid"] }}.html'>{{ league["leaguename"] }}</a></p>
    {%- endfor %}
   </div>

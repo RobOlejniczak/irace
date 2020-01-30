@@ -1,0 +1,192 @@
+{% include "head.html" %}
+  <title>iRace Driver Overview - {{ driver["displayName"] }}</title>
+  <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.20/css/jquery.dataTables.min.css">
+  <script type="text/javascript" language="javascript" src="https://code.jquery.com/jquery-3.3.1.js"></script>
+  <script type="text/javascript" language="javascript" src="https://cdn.datatables.net/1.10.20/js/jquery.dataTables.min.js"></script>
+  <script type="text/javascript" language="javascript" src="/js/moment.min.js"></script>
+  <script type="text/javascript" language="javascript" src="/js/datetime.js"></script>
+  <script type="text/javascript" language="javascript" class="init">
+   $.fn.dataTable.moment("HH:mm:ss.SSSS", "en", false);
+   $.fn.dataTable.moment("mm:ss.SSSS", "en", false);
+   $.fn.dataTable.moment("MMMM Do, YYYY", "en", false);
+   $(document).ready(function() {
+     var t = $("#results").DataTable({
+       "order": [[ 2, "desc" ]],
+       "lengthMenu": [[25, -1], [25, "All"]],
+       "columnDefs": [
+         {"searchable": false, "orderable": false, "targets": 0},
+         {"orderData": {% if multiclass %}6{% else %}5{% endif %}, "targets": {% if multiclass %}9{% else %}7{% endif %}}{% if multiclass %},
+         {"orderData": 8, "targets": 10}{% endif %}
+       ],
+       "aoColumns": [
+         null,
+         null,
+         {"orderSequence": ["desc", "asc"]},
+         null,
+         null,
+         {%- if multiclass %}{"orderSequence": ["desc", "asc"]},{%- endif %}
+         null,
+         null,
+         {%- if multiclass %}{"orderSequence": ["desc", "asc"]},{%- endif %}
+         null,
+         {%- if multiclass %}{"orderSequence": ["desc", "asc"]},{%- endif %}
+         {"orderSequence": ["desc", "asc"]},
+         null,
+         {"orderSequence": ["desc", "asc"]},
+         {"orderSequence": ["desc", "asc"]},
+         {"orderSequence": ["desc", "asc"]}{% if multiclass %},
+         {"orderSequence": ["desc", "asc"]}{%- endif %}
+       ]
+     });
+     t.on("order.dt search.dt", function() {
+       t.column(
+         0,
+         {search: "applied", order: "applied"}
+       ).nodes().each(function(cell, i) {
+         cell.innerHTML = i + 1;
+       });
+     }).draw();
+     var tS = $("#standings").DataTable({
+       "order": [[ 1, "desc" ]],
+       "lengthMenu": [[25, -1], [25, "All"]],
+       "columnDefs": [
+         {"searchable": false, "orderable": false, "targets": 0},
+         {"visible": false, "targets": 1}
+       ],
+       "aoColumns": [
+         null,
+         null,
+         null,
+         null,
+         null,
+         {"orderSequence": ["desc", "asc"]},
+         null,
+         null,
+         {"orderSequence": ["desc", "asc"]},
+         {"orderSequence": ["desc", "asc"]},
+         {"orderSequence": ["desc", "asc"]},
+         {"orderSequence": ["desc", "asc"]},
+         {"orderSequence": ["desc", "asc"]},
+         {"orderSequence": ["desc", "asc"]},
+         {"orderSequence": ["desc", "asc"]},
+         null,
+         {"orderSequence": ["desc", "asc"]}
+       ]
+     });
+     tS.on("order.dt search.dt", function() {
+       tS.column(
+         0,
+         {search: "applied", order: "applied"}
+       ).nodes().each(function(cell, i) {
+         cell.innerHTML = i + 1;
+       });
+     }).draw();
+   });
+  </script>
+ </head>
+ <body>
+{% include "banner.html" %}
+  <h1>
+   <p>
+    <span>{{ driver["displayName"] }}</span><br>
+    <span class="small">iRace Driver Overview</span>
+   </p>
+  </h1>
+  <div>
+   <div class="center large"><p>Seasons</p></div>
+   <table id="standings" class="display compact small">
+    <thead>
+     <tr>
+      <th></th>
+      <th>ID</th>
+      <th>League</th>
+      <th>Name</th>
+      <th>Position</th>
+      <th>Points</th>
+      <th>Avg Start</th>
+      <th>Avg Finish</th>
+      <th>Drivers</th>
+      <th>Races</th>
+      <th>Raced</th>
+      <th>Wins</th>
+      <th>Top5</th>
+      <th>Top10</th>
+      <th>Laps</th>
+      <th>Incidents</th>
+      <th>CPI</th>
+     </tr>
+    </thead>
+    <tbody>
+     {%- for season in seasons %}
+     <tr>
+      <td></td>
+      <td>{{ season["season_id"] }}</td>
+      <td class="serif left"><a href='/{{ season["league_id"] }}.html'>{{ leagues[season["league_id"]]["leaguename"] }}</a></td>
+      <td class="serif left"><a href='/{{ season["league_id"] }}/{{ season["season_id"] }}.html'>{{ season["season_name"] }}</a></td>
+      <td>{{ season["position"] }}</td>
+      <td>{{ season["points"] }}</td>
+      <td>{{ "{:.0f}".format(season["avg_start"]) }}</td>
+      <td>{{ "{:.0f}".format(season["avg_finish"]) }}</td>
+      <td>{{ season["drivers"] }}</td>
+      <td>{{ season["races"] }}</td>
+      <td>{{ season["raced"] }}</td>
+      <td>{{ season["wins"] }}</td>
+      <td>{{ season["top5"] }}</td>
+      <td>{{ season["top10"] }}</td>
+      <td>{{ season["laps"] }}</td>
+      <td>{{ season["incidents"] }}</td>
+      <td>{{ season["cpi"] }}</td>
+     </tr>
+     {%- endfor %}
+    </tbody>
+   </table>
+  </div>
+  <div>
+   <div class="center large"><p>Results</p></div>
+   <table id="results" class="display compact small">
+    <thead>
+     <tr>
+      <th></th>
+      <th>League</th>
+      <th>Date</th>
+      <th>Track</th>
+      <th>Car</th>
+      {%- if multiclass %}<th>Car Class</th>{%- endif %}
+      <th>Finish</th>
+      <th>Start</th>
+      {%- if multiclass %}<th>Class Finish</th>{%- endif %}
+      <th>Interval</th>
+      {%- if multiclass %}<th>Class Interval</th>{%- endif %}
+      <th>Laps</th>
+      <th>Incidents</th>
+      <th>Points</th>
+      <th>SOF</th>
+      <th>Drivers</th>
+      {%- if multiclass %}<th>Class Drivers</th>{%- endif %}
+     </tr>
+    </thead>
+    <tbody>
+     {%- for result in results %}
+     <a href="/"><tr>
+      <td></td>
+      <td class="serif"><a href='/{{ result["league_id"] }}/{{ result["season_id"] }}.html'>{{ leagues[result["league_id"]]["leaguename"] }}</a></td>
+      <td class="serif">{{ result["race_day"] }}</td>
+      <td class="serif"><a href='/{{ result["league_id"] }}/{{ result["season_id"] }}/{{ result["race_id"] }}.html'>{{ result["track"] }}{% if result["track_config"] != "N/A" %}<br>{{ result["track_config"] }}{% endif %}</a></td>
+      <td>{{ result["car"] }}</td>
+      {%- if multiclass %}<td>{{ result["class_name"] }}</td>{%- endif %}
+      <td>{{ result["finish"] }}</td>
+      <td>{{ result["start"] }}</td>
+      {%- if multiclass %}<td>{{ result["class_finish"] }}</td>{%- endif %}
+      <td>{{ result["interval"] }}</td>
+      {%- if multiclass %}<td>{{ result["class_interval"] }}</td>{%- endif %}
+      <td>{{ result["laps"] }}</td>
+      <td>{{ result["incidents"] }}</td>
+      <td>{{ result["points"] }}</td>
+      <td>{{ result["sof"] }}</td>
+      <td>{{ result["drivers"] }}</td>
+      {%- if multiclass %}<td>{{ result["class_drivers"] }}</td>{%- endif %}
+    </tr></a>
+     {%- endfor %}
+  </div>
+ </body>
+</html>

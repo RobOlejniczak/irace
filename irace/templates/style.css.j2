@@ -35,24 +35,41 @@ p {
 a {
   text-decoration: none;
 }
+h1, h2 {
+  text-align: center;
+  margin: 0 auto;
+}
 h1 {
   font-weight: 600;
-  text-align: center;
   min-height: 158px;
   line-height: 158px;
   margin: 0 0 0.25em;
-  font-size: 16px;
+  font-size: 1em;
   white-space: nowrap;
   word-wrap: normal;
 }
+h1 > p {
+  display: inline-block;
+  line-height: 0;
+  vertical-align: middle;
+}
+h1 > p > span {
+  line-height: 1em;
+}
 @media screen and (min-width: 320px) {
   h1 {
-    font-size: calc(16px + 6 * ((100vw - 320px) / 680));
+    font-size: calc(1em + 6 * ((100vw - 320px) / 680));
+  }
+  h1 > p > span {
+    line-height: calc(1em + 6 * ((100vw - 320px) / 680));
   }
 }
 @media screen and (min-width: 1600px) {
   h1 {
-    font-size: xx-large;
+    font-size: 2em;
+  }
+  h1 > p > span {
+    line-height: 2em;
   }
 }
 h1, .bottomBorder {
@@ -75,18 +92,27 @@ h1, .bottomBorder {
   position: fixed;
   bottom: 0;
   width: 100%;
+  background-color: #eee;
 }
 .fork-me {
   background-color: green;
 }
 td {
   font-family: 'Roboto Mono', monospace;
+  text-align: center;
 }
-table:not(.lapdata) td:first-child,
-table#results td:nth-child(5),
-table.lapdata td:nth-child(3) {
+.serif {
   font-family: 'Roboto', sans-serif;
 }
-table:not(.lapdata) td:not(:first-child), table.lapdata td {
-  text-align: center;
+.left {
+  text-align: left;
+}
+table:not(.lapdata) td:first-child {
+  font-weight: 600;
+  border-right: 1px solid black;
+}
+.container {
+  width: 70%;
+  max-width: 800px;
+  margin: 0 auto;
 }

@@ -3,11 +3,46 @@
   <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.20/css/jquery.dataTables.min.css">
   <script type="text/javascript" language="javascript" src="https://code.jquery.com/jquery-3.3.1.js"></script>
   <script type="text/javascript" language="javascript" src="https://cdn.datatables.net/1.10.20/js/jquery.dataTables.min.js"></script>
-  <script type="text/javascript" class="init">
+  <script type="text/javascript" language="javascript" class="init">
    $(document).ready(function() {
-     $("#standings").DataTable({
-       "order": [[ 1, "asc" ]],
-       "lengthMenu": [[25, -1], [25, "All"]]
+     var t = $("#standings").DataTable({
+       "order": [[ 2, "asc" ]],
+       "lengthMenu": [[25, -1], [25, "All"]],
+       "columnDefs": [{
+         "searchable": false,
+         "orderable": false,
+         "targets": 0
+       }],
+       "aoColumns": [
+         null,
+         null,
+         null,
+         {"orderSequence": ["desc", "asc"]},
+         {"orderSequence": ["desc", "asc"]},
+         {"orderSequence": ["desc", "asc"]},
+         {"orderSequence": ["desc", "asc"]},
+         {"orderSequence": ["desc", "asc"]},
+         {"orderSequence": ["desc", "asc"]},
+         null,
+         null,
+         {"orderSequence": ["desc", "asc"]},
+         null,
+         {"orderSequence": ["desc", "asc"]}
+       ]
+     });
+     t.on("order.dt search.dt", function() {
+       t.column(
+         0,
+         {search: "applied", order: "applied"}
+       ).nodes().each(function(cell, i) {
+         cell.innerHTML = i + 1;
+       });
+     }).draw();
+     $("#races").DataTable({
+       "searching": false,
+       "ordering": false,
+       "paging": false,
+       "info": false
      });
    });
   </script>
@@ -15,16 +50,36 @@
  <body>
 {% include "banner.html" %}
   <h1><a href='/{{ league["leagueid"] }}.html'>{{ league["leaguename"] }}</a> {{ season.season["league_season_name"] }}</h1>
-  <div class="center large bottomBorder">
-   <p>Race results:</p>
-   {%- for race in races|sort(attribute="subsessionid") %}
-   <p><a href='/{{ league["leagueid"] }}/seasons/{{ season.season["league_season_id"] }}/{{ race["subsessionid"] }}.html'>{{ race["track_name"] }}</a></p>
-   {%- endfor %}
+  <div class="container">
+   <div class="center large"><p>Races</p></div>
+   <table id="races" class="display compact">
+    <thead>
+     <tr>
+      <th></th>
+      <th>Track</th>
+      <th>Winner</th>
+      <th>Drivers</th>
+      <th>Date</th>
+     </tr>
+    </thead>
+    <tbody>
+     {%- for race in season.races|sort(attribute="subsessionid") %}
+     <tr>
+      <td>{{ loop.index }}</td>
+      <td class="serif"><a href='/{{ league["leagueid"] }}/{{ season.season["league_season_id"] }}/{{ race.subsessionid }}.html'>{{ race.race["track_name"] }}</a></td>
+      <td class="serif">{% if race.winner_id %}<a href='/drivers/{{ race.winner_id }}.html'>{% endif %}{{ race.winner }}{% if race.winner_id %}</a>{% endif %}</td>
+      <td>{{ race.results|length }}</td>
+      <td class="serif">{{ race.race_day }}</td>
+     </tr>
+     {%- endfor %}
+    </tbody>
+   </table>
   </div>
-  <div class="center large"><p>Season Standings:</p></div>
+  <div class="center large"><p>Season Standings</p></div>
   <table id="standings" class="display compact">
    <thead>
     <tr>
+     <th></th>
      <th>Name</th>
      <th>Position</th>
      <th>Points</th>
@@ -37,13 +92,14 @@
      <th>Avg Finish</th>
      <th>Laps</th>
      <th>Incidents</th>
-     <th>Incidents per corner</th>
+     <th title="Corners per incident">CPI</th>
     </tr>
    </thead>
    <tbody>
     {%- for driver in season.standings %}
     <tr>
-     <td>{{ driver.driver }}</td>
+     <td></td>
+     <td class="serif left"><a href='/drivers/{{ driver.driver_id }}.html'>{{ driver.driver }}</a></td>
      <td>{{ driver.position }}</td>
      <td>{{ driver.points }}</td>
      <td>{{ driver.races }}</td>
@@ -55,7 +111,7 @@
      <td>{{ "{:.0f}".format(driver.avg_finish) }}</td>
      <td>{{ driver.laps }}</td>
      <td>{{ driver.incidents }}</td>
-     <td>{{ "{:.6f}".format(driver.incidents_per_corner) }}</td>
+     <td>{{ driver.corners_per_incident }}</td>
     </tr>
     {%- endfor %}
    </tbody>

@@ -6,7 +6,7 @@
   <h1>{{ league["leaguename"] }} Seasons</h1>
   <div class="center large">
    {%- for season in seasons %}
-   <p><a href='/{{ league["leagueid"] }}/seasons/{{ season["league_season_id"] }}.html'>{{ season["league_season_name"] }}</a></p>
+   <p><a href='/{{ league["leagueid"] }}/{{ season["league_season_id"] }}.html'>{{ season["league_season_name"] }}</a></p>
    {%- endfor %}
   </div>
   <div class="center bottom">

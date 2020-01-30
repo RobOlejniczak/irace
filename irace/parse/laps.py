@@ -226,3 +226,14 @@ class Laps:
         if len(self.drivers) == 1:
             return self.drivers[0]["custid"]
         return 0
+
+    @property
+    def summary(self) -> dict:
+        """Returns a summary of the laps driven."""
+
+        return {
+            "laps": len(self.laps),
+            "average_lap": self.average_string,
+            "fastest_lap": self.fastest_lap_string,
+            "fast_lap": self.fast_lap,
+        }

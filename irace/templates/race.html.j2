@@ -3,57 +3,37 @@
   <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.20/css/jquery.dataTables.min.css">
   <script type="text/javascript" language="javascript" src="https://code.jquery.com/jquery-3.3.1.js"></script>
   <script type="text/javascript" language="javascript" src="https://cdn.datatables.net/1.10.20/js/jquery.dataTables.min.js"></script>
-  <script type="text/javascript" class="init">
+  <script type="text/javascript" language="javascript" src="/js/moment.min.js"></script>
+  <script type="text/javascript" language="javascript" src="/js/datetime.js"></script>
+  <script type="text/javascript" language="javascript" class="init">
   $(document).ready(function() {
-    $("#results").DataTable({
-      "order": [[ 2, "asc" ]],
-      "lengthMenu": [[25, -1], [25, "All"]]
-    });
-    $(".lapdata").DataTable({
-      "lengthMenu": [[20, -1], [20, "All"]]
-    });
-  });
-  var lastOpened;
-  function showLaps(driver) {
-   hideLaps();
-    $("#laps-" + driver).slideDown(100, function() {
-      lastOpened = driver;
-    });
-  }
-  function hideLaps() {
-    if (lastOpened != null) {
-      $("#laps-" + lastOpened).slideUp(100);
-      lastOpened = null;
-    }
-  }
-  $(document).click(function(event) {
-    ele = event.target;
-    if (ele == null) {
-      hideLaps();
-      return;
-    }
-    if (ele.getElementsByClassName("laps").length) {
-      return;
-    }
-    while (ele != null && !ele.classList.contains("laps")) {
-      if (ele.tagName == "BODY") {
-        hideLaps();
-        break;
-      }
-      ele = ele.parentElement;
-    }
+{% include "race.js" %}
   })
   </script>
  </head>
  <body>
 {% include "banner.html" %}
-  <h1><a href='/{{ league["leagueid"] }}.html'>{{ league["leaguename"] }}</a> <a href='/{{ league["leagueid"] }}/seasons/{{ season["league_season_id"] }}.html'>{{ season["league_season_name"] }}</a> at {{ race.race["track_name"] }}</h1>
+  <h1>
+   <p>
+    <span><a href='/{{ league["leagueid"] }}.html'>{{ league["leaguename"] }}</a> <a href='/{{ league["leagueid"] }}/{{ season["league_season_id"] }}.html'>{{ season["league_season_name"] }}</a></span><br>
+    <span>{{ race.race["track_name"] }}</span>
+   </p>
+  </h1>
+  <h2>
+   <p class="small">
+    <span>{{ race.race_day }}</span><br>
+    <span>Sim: {{ race.race["simulatedstarttime"] }} | Weather: {{ race.race["weather_temp_value"] }}{% if race.race["weather_temp_units"] == 0 %}F{% else %}C{% endif %}</span>
+   </p>
+  </h2>
   <table id="results" class="display compact">
    <thead>
     <tr>
+     <th></th>
      <th>Name</th>
+     {%- if race.multiclass -%}<th>Class</th>{%- endif -%}
      <th>Interval</th>
      <th>Finish</th>
+     {%- if race.multiclass -%}<th>Class Finish</th>{%- endif -%}
      <th>Start</th>
      <th>Result</th>
      <th>Laps</th>
@@ -66,11 +46,23 @@
    <tbody>
     {%- for result in race.results %}
     <tr>
-     <td><a href='/{{ league["leagueid"] }}/members/{{ result["custid"] }}.html'>{{ result["displayname"]}}</a></td>
-     <td>{% if result["interval"] > 0 or result["finishpos"] == 0 %}{{ time_string_raw(result["interval"]) }}{% else %}{{ result["lapscomplete"] - race.race["eventlapscomplete"] }}L{% endif %}</td>
+     <td></td>
+     <td class="serif left"><a href='/drivers/{{ result["custid"] }}.html'>{{ result["displayname"]}}</a></td>
+     {%- if race.multiclass -%}
+     <td class="serif">{{ result["ccNameShort"] }}</td>
+     {%- set interval = result["classinterval"] -%}
+     {%- set finishPos = result["finishposinclass"] -%}
+     {%- set lapsComplete = race.class_laps_completed[result["ccNameShort"]] -%}
+     {%- else -%}
+     {%- set interval = result["interval"] -%}
+     {%- set finishPos = result["finishpos"] -%}
+     {%- set lapsComplete = race.race["eventlapscomplete"] -%}
+     {%- endif -%}
+     <td>{% if interval > 0 or finishPos == 0 %}{{ time_string_raw(interval) }}{% else %}{{ result["lapscomplete"] - lapsComplete }}L{% endif %}</td>
      <td>{{ result["finishpos"] + 1 }}</td>
+     {%- if race.multiclass -%}<td>{{ result["finishposinclass"] + 1 }}</td>{%- endif -%}
      <td>{{ result["startpos"] + 1 }}</td>
-     <td>{{ result["reasonout"] }}</td>
+     <td class="serif">{{ result["reasonout"] }}</td>
      <td><a href='javascript:showLaps({{ result["custid"] }})'>{{ result["lapscomplete"] }}</a></td>
      <td>{% if result["bestlapnum"] > 0 %}{{ result["bestlapnum"] }}{% else %}-{% endif %}</td>
      <td>{{ time_string_raw(result["bestlaptime"]) }}</td>
@@ -97,7 +89,7 @@
      <tr>
       <td>{{ lap.lap }}</td>
       <td>{% if lap.lap == 0 %}--:--{% else %}{{ time_string(lap.time) }}{% endif %}</td>
-      <td>{{ ", ".join(lap.flag_names) }}</td>
+      <td class="serif">{{ ", ".join(lap.flag_names) }}</td>
      </tr>
      {%- endfor %}
     </tbody>

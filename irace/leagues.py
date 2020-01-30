@@ -16,20 +16,21 @@ Options:
 
 import json
 
+from .stats import Client
 from .utils import get_args
-from .utils import get_client
+from .utils import config_client
 
 
 def main():
     """Command line entry point."""
 
     args = get_args(__doc__)
-    client = get_client(args)
+    config_client(args)
 
     try:
-        res = client.league_info(int(args["<SEARCH>"]))
+        res = Client.league_info(int(args["<SEARCH>"]))
     except ValueError:
-        res = client.league_search(args["<SEARCH>"])
+        res = Client.league_search(args["<SEARCH>"])
 
     print(json.dumps(res, sort_keys=True, indent=4, ensure_ascii=False))
 

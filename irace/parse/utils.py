@@ -45,3 +45,15 @@ def _format_seconds(seconds: float) -> str:
         return "{:02}:{}".format(int(hours), timestr)
 
     return timestr
+
+
+def suffix(number: int) -> str:
+    """Return the english suffix for the number."""
+
+    if number != 11 and number % 10 == 1:
+        return "st"
+    if number != 12 and number % 10 == 2:
+        return "nd"
+    if number != 13 and number % 10 == 3:
+        return "rd"
+    return "th"

@@ -4,16 +4,6 @@
 from collections import defaultdict
 
 
-def _incidents_per_corner(race: dict, result: dict) -> float:
-    """Calculate the average incidents per corner for the race."""
-
-    # XXX corners complete isn't exposed as far as I can tell...
-    corners_complete = race["cornersperlap"] * (result["lapscomplete"] + 1)
-    if corners_complete:
-        return result["incidents"] / corners_complete
-    return -1.0
-
-
 class Driver:  # pylint: disable=R0902
     """Season aggregated driver results."""
 
@@ -33,7 +23,7 @@ class Driver:  # pylint: disable=R0902
 
         self._starts = []
         self._finishes = []
-        self._incidents_per_corner = []
+        self.corners = 0
 
     def add(self, race: dict, result: dict) -> None:
         """Add the race result to our totals."""
@@ -50,22 +40,19 @@ class Driver:  # pylint: disable=R0902
         self.top10 += 1 if result["finishpos"] < 10 else 0
         self.incidents += result["incidents"]
         self.laps += result["lapscomplete"]
+        self.corners += (race["cornersperlap"] * result["lapscomplete"])
 
         self._starts.append(result["startpos"] + 1)
         self._finishes.append(result["finishpos"] + 1)
-        self._incidents_per_corner.append(_incidents_per_corner(
-            race,
-            result
-        ))
 
     @property
-    def incidents_per_corner(self) -> float:
-        """Average our incidents per corner over all races."""
+    def corners_per_incident(self) -> str:
+        """Calculate our corners per incidents over all races."""
 
-        legit = [x for x in self._incidents_per_corner if x > 0]
-        if legit:
-            return sum(legit) / len(legit)
-        return 0.0
+        if self.incidents:
+            return "{:,.2f}".format(self.corners / self.incidents)
+        # no floating point distinguishes zero vs one incident
+        return "{:,d}".format(self.corners)
 
     @property
     def avg_start(self) -> float:
@@ -109,6 +96,18 @@ class Leaderboard:
             reverse=True,
         )
 
+    @property
+    def drivers(self) -> int:
+        """Returns a count of drivers in the season."""
+
+        return len(self._drivers)
+
+    @property
+    def races(self) -> int:
+        """Returns a count of races in the season."""
+
+        return len(self._races)
+
 
 class Season:
     """Parsed season object.
@@ -118,6 +117,7 @@ class Season:
 
     def __init__(self, races: list, season: dict):
         self.races = races
+        self.race_data = [x.race for x in self.races]
         self.season = season
         self.leaderboard = Leaderboard()
         for race in self.races:
@@ -141,3 +141,28 @@ class Season:
             previous_points = driver.points
 
         return drivers
+
+    def summary(self, driver_id: int) -> dict:
+        """Return a summary for the driver in this season."""
+
+        for driver in self.standings:
+            if driver.driver_id == driver_id:
+                return {
+                    "season_id": self.season["league_season_id"],
+                    "season_name": self.season["league_season_name"],
+                    "league_id": self.season["leagueid"],
+                    "position": driver.position,
+                    "drivers": self.leaderboard.drivers,
+                    "races": self.leaderboard.races,
+                    "raced": driver.races,
+                    "points": driver.points,
+                    "wins": driver.wins,
+                    "top5": driver.top5,
+                    "top10": driver.top10,
+                    "incidents": driver.incidents,
+                    "laps": driver.laps,
+                    "cpi": driver.corners_per_incident,
+                    "avg_start": driver.avg_start,
+                    "avg_finish": driver.avg_finish,
+                }
+        return {}

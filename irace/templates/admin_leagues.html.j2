@@ -1,0 +1,40 @@
+{% include "head.html" %}
+{% include "admin_header.html" %}
+  <script type="text/javascript" language="javascript" class="init">
+   $(document).ready(function() {
+     {% include "admin.js" %}
+   });
+  </script>
+ </head>
+ <body>
+{% include "banner.html" %}
+  <h1><a href="/">iRace Admin</a></h1>
+  <div class="center large"><p>{{ league["league_name"] }} Seasons</p></div>
+  <div class="center small"><p><a href='/update/seasons/{{ league["league_id"] }}/'>Update all</a></p></div>
+  <table id="standings" class="display compact indexed">
+   <thead>
+    <tr>
+     <th></th>
+     <th>Name</th>
+     <th>ID</th>
+     <th>Last Update Time</th>
+     <th>Last Update Reason</th>
+     <th>Next Update</th>
+     <th>Manual Update</th>
+    </tr>
+   </thead>
+   <tbody>
+    {%- for season in league["seasons"]|sort(attribute="season_id") %}
+    <tr>
+     <td></td>
+     <td><a href='{{ irace_host }}/{{ league["league_id"] }}/{{ season["season_id"] }}.html'>{{ season["season_name"] }}</a></td>
+     <td>{{ season["season_id"] }}</td>
+     <td>{{ season["last_update_time"] }}</td>
+     <td>{{ season["last_update_reason"] }}</td>
+     <td>{{ season["next_update_time"] }}</td>
+     <td><a href='/update/seasons/{{ league["league_id"] }}/{{ season["season_id"] }}/'>Update</a></td>
+    </tr>
+    {%- endfor %}
+   </tbody>
+  </table>
+  {% include "admin_footer.html" %}

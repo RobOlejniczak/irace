@@ -35,7 +35,7 @@ def long_description(filename="README.md", encoding="utf-8"):
 
 setup(
     name="iRace",
-    version="0.0.1",
+    version="0.1.0",
     author="Adam Talsma",
     author_email="adam@talsma.ca",
     url="https://github.com/a-tal/irace",
@@ -56,6 +56,14 @@ setup(
         "docopt >= 0.6.1",
         "jinja2 >= 2.10.3",
     ],
+    extras_require={
+        "admin": [
+            "flask >= 1.1.1",
+            "gevent >= 1.4.0",
+            "couchdb >= 1.2",
+            "Flask-SocketIO >= 4.2.1",
+        ],
+    },
     cmdclass={"test": PyTest},
     tests_require=["mock", "pytest", "pytest-cov"],
     entry_points={"console_scripts": [
@@ -64,6 +72,9 @@ setup(
         "irace-generate = irace.generate:main",
         "irace-league = irace.leagues:main",
         "irace-results = irace.parse_race:main",
+        "irace-admin = irace.admin.web:main",
+        "irace-storage = irace.storage:main",
+        "irace-web = irace.web:main",
     ]},
     classifiers=[
         'Development Status :: 4 - Beta',

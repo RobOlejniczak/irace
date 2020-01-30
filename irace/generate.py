@@ -3,6 +3,9 @@
 This script will recreate all files in the output directory based on the
 JSON files located in the input directory.
 
+Alternatively if you have couchDB environment variables setup this
+will prefer to fetch results from there.
+
 Usage:
     irace-generate [options]
 
@@ -11,42 +14,55 @@ Options:
     --version            display version information
     --output=<path>      output path [default: html]
     --input=<path>       input path, from irace-populate [default: results]
-    --preserve           preserve contents in output path
 """
 
 
 import io
 import os
-import json
 import shutil
-from glob import glob
+from concurrent.futures import ThreadPoolExecutor
 
 import jinja2
 
+from .stats import Client
 from .utils import get_args
 from .parse import Laps
 from .parse import Race
 from .parse import Season
+from .storage import Server
+from .storage import Databases
 from .parse.utils import time_string
 from .parse.utils import time_string_raw
+from .stats.logger import log
 
 
-def _has_depth(path: str, depth: int) -> bool:
-    """Check if the path has some files in the required depth."""
+class Stats:
+    """Static stats object to track processing."""
 
-    return glob(os.path.join(path, *["*"] * depth)) != []
+    def __init__(self, amount: int):
+        self._queued = amount
+        self._processed = 0
+        self.log()
 
+    def log(self, level: int = 20) -> None:
+        """Log our current state."""
 
-def _depth(path: str) -> int:
-    """Returns the depth of path."""
+        if self._queued and not self._processed:
+            log.log(level, "{:,d} [queued]".format(self._queued))
+        elif self._processed < self._queued:
+            log.log(level, "{:,d}/{:,d} [working]".format(
+                self._processed,
+                self._queued,
+            ))
+        elif self._queued:
+            log.log(level, "{:,d} [finished]".format(self._queued))
+        else:
+            log.log(level, "[ready]")
 
-    depth = 0
-    path_split = os.path.split(path)
-    while path_split[1] != path:
-        depth += 1
-        path = path_split[0]
-        path_split = os.path.split(path)
-    return depth
+    def inc(self) -> None:
+        """Increment the processed count."""
+
+        self._processed += 1
 
 
 def _make_missing(path: str) -> None:
@@ -59,96 +75,39 @@ def _make_missing(path: str) -> None:
         os.makedirs(path)
 
 
-def _ensure_paths(args: dict) -> None:
-    """Ensure the input and output paths exist and are valid."""
-
-    input_path = args["--input"]
-    if not os.path.exists(input_path) or not os.path.isdir(input_path):
-        raise SystemExit("Input path does not exist or is a file")
-
-    path_depths = {
-        "leagues": (os.path.join(input_path, "leagues"), 1),
-        "members": (os.path.join(input_path, "members"), 2),
-        "seasons": (os.path.join(input_path, "seasons"), 2),
-        "races": (os.path.join(input_path, "races"), 3),
-        "laps": (os.path.join(input_path, "laps"), 4),
-    }
-
-    all_leagues = []
-    for key, depths in path_depths.items():
-        if not os.path.isdir(depths[0]) or not _has_depth(*depths):
-            raise SystemExit("Missing {} results".format(key))
-
-        if key == "leagues":
-            continue
-
-        leagues_found = []
-        for league_path in glob(os.path.join(depths[0], "*")):
-            try:
-                leagues_found.append(int(os.path.split(league_path)[1]))
-            except ValueError:
-                raise SystemExit("Invalid path found in results, aborting")
-
-        if all_leagues == []:
-            all_leagues = leagues_found
-        elif all_leagues != leagues_found:
-            raise SystemExit("Incomplete result data, aborting")
-
-    output_path = args["--output"]
-
-    if not args["--preserve"] and os.path.exists(output_path):
-        shutil.rmtree(output_path)
-
-    _make_missing(output_path)
-
-    args["leagues"] = all_leagues
-    args["paths"] = {key: value[0] for key, value in path_depths.items()}
-    args["paths"]["output"] = output_path
-
-    args.pop("--input")
-    args.pop("--output")
-
-
-def _read_data(args: dict, data_type: str, *sub: str) -> list:
-    """Read all JSON data at path."""
-
-    data = []
-    path = os.path.join(args["paths"][data_type], *[str(x) for x in sub], "*")
-    for json_path in glob(path):
-        try:
-            with io.open(json_path, "r", encoding="utf-8") as open_data:
-                data.append(json.load(open_data))
-        except Exception as err:
-            raise SystemExit("Failed to read {}: {!r}".format(data_type, err))
-    return data
-
-
-def _read_json(args: dict) -> dict:
+def _read_json() -> dict:
     """Read all JSON data."""
 
+    leagues = Server.read_all(Databases.leagues)
+
     return {
-        "leagues": _read_data(args, "leagues"),
-        "data": {league: {
-            "members": _read_data(args, "members", league),
+        "leagues": leagues,
+        "data": {league["leagueid"]: {
+            "members": Server.read_all(
+                Databases.members,
+                (league["leagueid"],),
+            ),
             "seasons": [{
                 "season": season,
                 "races": [{
                     "race": race,
-                    "laps": [Laps(lap_data) for lap_data in _read_data(
-                        args,
-                        "laps",
-                        league,
-                        season["league_season_id"],
-                        race["subsessionid"],
+                    "laps": [Laps(lap_data) for lap_data in Server.read_all(
+                        Databases.laps,
+                        (
+                            league["leagueid"],
+                            season["league_season_id"],
+                            race["subsessionid"],
+                        ),
                     )],
-                } for race in _read_data(
-                    args,
-                    "races",
-                    league,
-                    season["league_season_id"],
+                } for race in Server.read_all(
+                    Databases.races,
+                    (league["leagueid"], season["league_season_id"]),
                 )],
-            } for season in _read_data(args, "seasons", league)],
-        } for league in args["leagues"]},
+            } for season in Server.read_all(
+                Databases.seasons,
+                (league["leagueid"],),
+            )],
+        } for league in leagues},
     }
 
 
@@ -177,44 +136,127 @@ def _write_file(content: str, path: str) -> None:
         open_file.write(content)
 
 
-def _write_members(templates: dict, base_path: str, members: list,
-                   league_info: dict) -> None:
-    """Write templated member data to disk."""
+def _read_file(path: str) -> str:
+    """Read the content of file at path."""
 
-    _make_missing(os.path.join(base_path, "members"))
-    for member in members:
+    with io.open(path, "r", encoding="utf-8") as open_file:
+        return open_file.read()
+
+
+def _driver_league_results(data: dict, driver: dict) -> dict:
+    """Return all results for this driver from all leagues in data."""
+
+    results = {}
+
+    for league_id, _data in data.items():
+        seasons = []
+
+        for season in _data["seasons"]:
+            this_season = {
+                "results": [],
+                "_races": [],
+            }
+
+            for race in season["races"]:
+                race = Race(**race)
+                this_season["_races"].append(race)
+
+                result = race.summary(driver["custID"])
+
+                if result and race.winner_id:
+                    this_season["results"].append(result)
+
+            if this_season["results"]:
+                this_season["season"] = Season(
+                    this_season.pop("_races"),
+                    season["season"]
+                ).summary(driver["custID"])
+                seasons.append(this_season)
+
+        if seasons:
+            results[str(league_id)] = seasons
+
+    return results
+
+
+def driver_results(data: dict, driver: dict) -> dict:
+    """Pull all driver results from data and merge with cached."""
+
+    results = _driver_league_results(data, driver)
+    from_cache = Server.read(Databases.drivers, (), driver["custID"]) or {}
+    from_cache.update(results)
+    Server.write(Databases.drivers, (), driver["custID"], from_cache)
+    return from_cache
+
+
+def _write_driver(args: dict, data: dict, templates: dict, driver: dict):
+    """Write templated driver data to disk."""
+
+    results = driver_results(data["data"], driver)
+    if results:
+        flat_results = sorted(
+            [z for x in results.values() for y in x for z in y["results"]],
+            key=lambda x: x["race_id"],
+        )
+        flat_seasons = sorted(
+            [y["season"] for x in results.values() for y in x],
+            key=lambda x: x["season_id"],
+        )
+
         _write_file(
-            templates["member.html"].render(
-                member=member,
-                league=league_info,
+            templates["driver.html"].render(
+                driver=driver,
+                results=flat_results,
+                multiclass=any(
+                    [x.get("class_drivers") for x in flat_results]
+                ),
+                seasons=flat_seasons,
+                leagues={x["leagueid"]: x for x in data["leagues"]},
             ),
             os.path.join(
-                base_path,
-                "members",
-                "{}.html".format(member["custID"]),
+                args["--output"],
+                "drivers",
+                "{}.html".format(driver["custID"]),
             ),
         )
 
-    _write_file(
-        templates["members.html"].render(
-            members=members,
-            league=league_info,
-        ),
-        os.path.join(base_path, "members.html"),
-    )
+
+def _write_drivers(args: dict, data: dict, templates: dict,
+                   drivers: list) -> None:
+    """Write all driver data to disk."""
+
+    _make_missing(os.path.join(args["--output"], "drivers"))
+
+    # ensure the cache is populated
+    Client.login()
+
+    stats = Stats(len(drivers))
+
+    log_gap = int(len(drivers) / 20)  # every 5% of drivers complete
+    processed = 0
+
+    def _write_driver_async(driver):
+        _write_driver(args, data, templates, driver)
+
+    with ThreadPoolExecutor(max_workers=20) as executor:
+        for _ in executor.map(_write_driver_async, drivers, timeout=30):
+            stats.inc()
+            processed += 1
+            if processed % log_gap == 0:
+                stats.log()
+
+    stats.log()
 
 
 def _write_seasons(templates: dict, base_path: str, seasons: list,
                    league_info: dict) -> None:
     """Write templated season data to disk."""
 
-    _make_missing(os.path.join(base_path, "seasons"))
     for season in seasons:
         season_races = []
         for race in season["races"]:
             _make_missing(os.path.join(
                 base_path,
-                "seasons",
                 str(season["season"]["league_season_id"]),
             ))
             race_obj = Race(race["laps"], race["race"])
@@ -227,7 +269,6 @@ def _write_seasons(templates: dict, base_path: str, seasons: list,
                 ),
                 os.path.join(
                     base_path,
-                    "seasons",
                     str(season["season"]["league_season_id"]),
                     "{}.html".format(race["race"]["subsessionid"]),
                 )
@@ -241,7 +282,6 @@ def _write_seasons(templates: dict, base_path: str, seasons: list,
             ),
             os.path.join(
                 base_path,
-                "seasons",
                 "{}.html".format(season["season"]["league_season_id"]),
             )
         )
@@ -256,42 +296,84 @@ def _league_info(leagues: list, league: int) -> dict:
     return {}
 
 
-def _write_templates(args: dict, data: dict) -> None:
-    """Write the data-formatted templates to the output path."""
+def _write_top_level(args: dict, data: dict, templates: dict) -> None:
+    """Write top level files."""
 
-    templates = _get_templates()
+    _make_missing(os.path.join(args["--output"], "js"))
+
     _write_file(
         templates["style.css"].render(),
-        os.path.join(args["paths"]["output"], "style.css"),
+        os.path.join(args["--output"], "style.css"),
     )
     _write_file(
         templates["index.html"].render(leagues=data["leagues"]),
-        os.path.join(args["paths"]["output"], "index.html"),
+        os.path.join(args["--output"], "index.html"),
     )
 
-    for league, _data in data["data"].items():
-        base_path = os.path.join(args["paths"]["output"], str(league))
-        league_info = _league_info(data["leagues"], league)
+    for js_file in ("moment.min.js", "datetime.js"):
         _write_file(
-            templates["league.html"].render(
-                league=league_info,
-                seasons=[x["season"] for x in _data["seasons"]],
-            ),
-            os.path.join(
-                args["paths"]["output"],
-                "{}.html".format(league_info["leagueid"]),
-            ),
+            _read_file(os.path.join("static", js_file)),
+            os.path.join(args["--output"], "js", js_file)
         )
-        _write_members(templates, base_path, _data["members"], league_info)
-        _write_seasons(templates, base_path, _data["seasons"], league_info)
+
+
+def write_templates(args: dict, data: dict) -> None:
+    """Write the data-formatted templates to the output path."""
+
+    templates = _get_templates()
+    _write_top_level(args, data, templates)
+
+    all_drivers = []
+
+    for league, _data in data["data"].items():
+        base_path = os.path.join(args["--output"], str(league))
+        league_info = _league_info(data["leagues"], league)
+        if league_info:
+            _write_file(
+                templates["league.html"].render(
+                    league=league_info,
+                    seasons=[x["season"] for x in _data["seasons"]],
+                ),
+                os.path.join(
+                    args["--output"],
+                    "{}.html".format(league_info["leagueid"]),
+                ),
+            )
+
+            for member in _data["members"]:
+                found = False
+                for known in all_drivers:
+                    if known["custID"] == member["custID"]:
+                        found = True
+                        break
+                if not found:
+                    all_drivers.append(member)
+
+            _write_seasons(templates, base_path, _data["seasons"], league_info)
+        else:
+            try:
+                os.remove(os.path.join(
+                    args["--output"],
+                    "{}.html".format(league),
+                ))
+            except Exception as error:
+                log.warning("Failed to remove league file: %r", error)
+
+            try:
+                shutil.rmtree(os.path.join(args["--output"], str(league)))
+            except Exception as error:
+                log.warning("Failed to remove league files: %r", error)
+
+    _write_drivers(args, data, templates, all_drivers)
 
 
 def main():
     """Command line entry point."""
 
     args = get_args(__doc__)
-    _ensure_paths(args)
-    _write_templates(args, _read_json(args))
+    # in case we need to fallback to file storage
+    os.environ["IRACE_RESULTS"] = args["--input"]
+    write_templates(args, _read_json())
 
 
 if __name__ == "__main__":
