@@ -62,8 +62,9 @@ example/
 
 # environment
 env.vars
+.env
+.ssh/*
 
 # populated results
-results/*.json
-results/**/*.json
+results
 html
