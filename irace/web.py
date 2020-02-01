@@ -29,13 +29,15 @@ except ImportError:
     )
 
 from flask import Flask
-from flask import redirect
+from flask import jsonify
+# from flask import redirect
 from flask import render_template
 
 from .stats import Client
 from .parse import Race
 from .parse import Laps
 from .parse import Season
+from .parse import League
 from .utils import get_args
 from .storage import Server
 from .storage import Databases
@@ -151,7 +153,7 @@ def _get_season(league: dict, season_id: int) -> Season:
             ) for race in Cache.get(
                 Databases.races,
                 (league["leagueid"], season_id),
-            )], season)
+            )], season, league)
     return None
 
 
@@ -166,57 +168,52 @@ def style_get():
 
 @app.route("/", methods=["GET"])
 def main_redirect():
-    """Top level redirect."""
+    """Top level static HTML return."""
 
-    return redirect("/index.html")
-
-
-@app.route("/index.html", methods=["GET"])
-def all_leagues():
-    """Return top level details for all tracked leagues."""
-
-    return render_template(
-        "index.html.j2",
-        leagues=Cache.get(Databases.leagues),
-    )
+    return app.send_static_file("index.html")
 
 
-@app.route("/<int:league_id>.html", methods=["GET"])
-def league_details(league_id: int):
-    """Return top level details for a tracked league."""
-
-    league = _get_league(league_id)
-    if league is None:
-        return abort(404)
-
-    return render_template(
-        "league.html.j2",
-        league=league,
-        seasons=Cache.get(Databases.seasons, (league["leagueid"],)),
-    )
-
-
-@app.route("/<int:league_id>/<int:season_id>.html", methods=["GET"])
-def league_season(league_id: int, season_id: int):
-    """Return details for a season in a league."""
-
-    league = _get_league(league_id)
-    if league is None:
-        return abort(404)
-
-    season = _get_season(league, season_id)
-    if season is None:
-        return abort(404)
-
-    return render_template("season.html.j2", league=league, season=season)
+# @app.route("/index.html", methods=["GET"])
+# def all_leagues():
+#     """Return top level details for all tracked leagues."""
+#
+#     return app.send_static_file("index.html")
+#
+#
+# @app.route("/race.html")
+# def race_html():
+#     """Return the static race results HTML."""
+#
+#     return app.send_static_file("race.html")
+#
+#
+# @app.route("/season.html")
+# def season_html():
+#     """Return the static season HTML."""
+#
+#     return app.send_static_file("season.html")
+#
+#
+# @app.route("/seasons.html")
+# def seasons_html():
+#     """Return the static seasons HTML."""
+#
+#     return app.send_static_file("seasons.html")
+#
+#
+# @app.route("/driver.html")
+# def driver_html():
+#     """Return the static driver overview HTML."""
+#
+#     return app.send_static_file("driver.html")
 
 
 @app.route(
-    "/<int:league_id>/<int:season_id>/<int:race_id>.html",
+    "/<int:league_id>/<int:season_id>/<int:race_id>.json",
     methods=["GET"],
 )
-def league_race(league_id: int, season_id: int, race_id: int):
-    """Return details for a race in a season in a league."""
+def race_json(league_id: int, season_id: int, race_id: int):
+    """League race JSON results."""
 
     league = _get_league(league_id)
     if league is None:
@@ -226,14 +223,93 @@ def league_race(league_id: int, season_id: int, race_id: int):
     if season is None:
         return abort(404)
 
-    for race in season.races:
-        if race.race["subsessionid"] == race_id:
-            return render_template(
-                "race.html.j2",
-                league=league,
-                season=season.season,
-                race=race,
-            )
+    summary = season.race_summary(race_id)
+    if summary:
+        return jsonify(summary)
+
+    return abort(404)
+
+
+@app.route("/<int:league_id>/<int:season_id>.json", methods=["GET"])
+def season_json(league_id: int, season_id: int):
+    """League season JSON results."""
+
+    league = _get_league(league_id)
+    if league is None:
+        return abort(404)
+
+    season = _get_season(league, season_id)
+    if season is None:
+        return abort(404)
+
+    summary = season.summary()
+    if summary:
+        return jsonify(summary)
+
+    return abort(404)
+
+
+@app.route("/<int:league_id>.json", methods=["GET"])
+def league_json(league_id: int):
+    """Return top level league details."""
+
+    league = _get_league(league_id)
+    if league is None:
+        return abort(404)
+
+    seasons = Cache.get(Databases.seasons, (league["leagueid"],))
+
+    league_obj = League(league, seasons)
+    return jsonify(league_obj.summary)
+
+
+@app.route("/leagues.json", methods=["GET"])
+def all_leagues_json():
+    """Return a list of all leagues."""
+
+    return jsonify([League(x, []).info for x in Cache.get(Databases.leagues)])
+
+
+def merge_league_season_info(results: list, seasons: list) -> None:
+    """Merge the league and season info from seasons into each result."""
+
+    def _pull_info(key: str, _id: int) -> dict:
+        for season in seasons:
+            if season[key]["id"] == _id:
+                return season[key]
+        return {"id": _id, "name": "N/A"}
+
+    for result in results:
+        result["league"] = _pull_info("league", result["league"])
+        result["season"] = _pull_info("season", result["season"])
+
+
+@app.route("/drivers/<int:driver_id>.json", methods=["GET"])
+def driver_json(driver_id: int):
+    """Return JSON for the driver details page."""
+
+    driver, leagues, results = get_or_generate(driver_id)
+
+    log.info("driver_id: %d results: %r", driver_id, results)
+
+    if results:
+        flat_results = sorted(
+            [z for x in results.values() for y in x for z in y["results"]],
+            key=lambda x: x["id"],
+        )
+        flat_seasons = sorted(
+            [y["season"] for x in results.values() for y in x],
+            key=lambda x: x["season"]["id"],
+        )
+
+        return jsonify({
+            "driver": {
+                "name": driver["displayName"],
+                "id": driver["custID"],
+            },
+            "results": flat_results,
+            "seasons": flat_seasons,
+        })
 
     return abort(404)
 
@@ -269,7 +345,7 @@ def get_driver_results(driver: dict, leagues: list) -> dict:
         )],
     } for league in leagues}
 
-    return driver_results(data, driver)
+    return driver_results({"leagues": leagues, "data": data}, driver)
 
 
 def get_or_generate(driver_id: int) -> tuple:
@@ -281,15 +357,16 @@ def get_or_generate(driver_id: int) -> tuple:
     leagues = {}
 
     for league in Cache.get(Databases.leagues):
-        driver = Cache.get_one(
+        league_driver = Cache.get_one(
             Databases.members,
             (league["leagueid"],),
             driver_id,
         )
-        if driver:
+        if league_driver:
             leagues[league["leagueid"]] = league
+            driver = league_driver
 
-    if driver:
+    if leagues:
         if cached_results:
             log.info("returning cached results")
             return driver, leagues, cached_results
@@ -299,37 +376,8 @@ def get_or_generate(driver_id: int) -> tuple:
             list(leagues.values()),
         )
 
-    # driver has not raced in any league
+    log.warn("driver %d is not a member of any league", driver_id)
     return {}, {}, {}
-
-
-@app.route("/drivers/<int:driver_id>.html", methods=["GET"])
-def get_driver(driver_id: int):
-    """Return details about a specific driver."""
-
-    driver, leagues, results = get_or_generate(driver_id)
-
-    log.info("driver_id: %d results: %r", driver_id, results)
-
-    if results:
-        flat_results = sorted(
-            [z for x in results.values() for y in x for z in y["results"]],
-            key=lambda x: x["race_id"],
-        )
-        flat_seasons = sorted(
-            [y["season"] for x in results.values() for y in x],
-            key=lambda x: x["season_id"],
-        )
-        return render_template(
-            "driver.html.j2",
-            driver=driver,
-            results=flat_results,
-            multiclass=any([x.get("class_drivers") for x in flat_results]),
-            seasons=flat_seasons,
-            leagues=leagues,
-        )
-
-    return abort(404)
 
 
 def main():

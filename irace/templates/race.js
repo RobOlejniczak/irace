@@ -47,7 +47,7 @@ $(document).ready(function() {
           "datasets": [
             {%- for laps in race.laps -%}
             {%- if laps.laps|length > 1 %}
-            {"label":"{{ laps.driver }}","order":{{ race.summary(laps.driver_id)["finish"] }},"hidden":true,"fill":false,"lineTension":0.1,"borderColor":"{{ random_color() }}","data":[
+            {"label":"{{ laps.driver }}","order":{{ race.driver_summary(laps.driver_id)["finish"] }},"hidden":true,"fill":false,"lineTension":0.1,"borderColor":"{{ random_color() }}","data":[
               {%- for lap in laps.laps %}
               {%- if lap.lap != 0 and lap.time.total_seconds() > 0 %}{x:{{ lap.lap }},y:"{{ time_string(lap.time) }}"}
               {%- if loop.index != loop.length %},{% endif %}

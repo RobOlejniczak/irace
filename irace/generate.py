@@ -14,11 +14,14 @@ Options:
     --version            display version information
     --output=<path>      output path [default: html]
     --input=<path>       input path, from irace-populate [default: results]
+    --write-html         output only html files (default)
+    --write-json         output only json files
 """
 
 
 import io
 import os
+import json
 import shutil
 from concurrent.futures import ThreadPoolExecutor
 
@@ -29,6 +32,7 @@ from .utils import get_args
 from .parse import Laps
 from .parse import Race
 from .parse import Season
+from .parse import League
 from .storage import Server
 from .storage import Databases
 from .parse.utils import random_color
@@ -131,11 +135,24 @@ def _get_templates() -> dict:
     }
 
 
+def _write_json(content: object, path: str) -> None:
+    """JSON dump the content and write it to path."""
+
+    as_json = json.dumps(
+        content,
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+    return _write_file(as_json, path)
+
+
 def _write_file(content: str, path: str) -> None:
     """Write the content to the file at path."""
 
     with io.open(path, "w", encoding="utf-8") as open_file:
         open_file.write(content)
+
+    log.info("Wrote: %s", path)
 
 
 def _read_file(path: str) -> str:
@@ -150,8 +167,9 @@ def _driver_league_results(data: dict, driver: dict) -> dict:
 
     results = {}
 
-    for league_id, _data in data.items():
+    for league_id, _data in data["data"].items():
         seasons = []
+        league_info = _league_info(data["leagues"], league_id)
 
         for season in _data["seasons"]:
             this_season = {
@@ -163,7 +181,7 @@ def _driver_league_results(data: dict, driver: dict) -> dict:
                 race = Race(**race)
                 this_season["_races"].append(race)
 
-                result = race.summary(driver["custID"])
+                result = race.driver_summary(driver["custID"], lap_info=False)
 
                 if result and race.winner_id:
                     this_season["results"].append(result)
@@ -171,8 +189,9 @@ def _driver_league_results(data: dict, driver: dict) -> dict:
             if this_season["results"]:
                 this_season["season"] = Season(
                     this_season.pop("_races"),
-                    season["season"]
-                ).summary(driver["custID"])
+                    season["season"],
+                    league_info,
+                ).driver_summary(driver["custID"])
                 seasons.append(this_season)
 
         if seasons:
@@ -194,33 +213,51 @@ def driver_results(data: dict, driver: dict) -> dict:
 def _write_driver(args: dict, data: dict, templates: dict, driver: dict):
     """Write templated driver data to disk."""
 
-    results = driver_results(data["data"], driver)
+    results = driver_results(data, driver)
     if results:
         flat_results = sorted(
             [z for x in results.values() for y in x for z in y["results"]],
-            key=lambda x: x["race_id"],
+            key=lambda x: x["id"],
         )
         flat_seasons = sorted(
             [y["season"] for x in results.values() for y in x],
-            key=lambda x: x["season_id"],
+            key=lambda x: x["season"]["id"],
         )
 
-        _write_file(
-            templates["driver.html"].render(
-                driver=driver,
-                results=flat_results,
-                multiclass=any(
-                    [x.get("class_drivers") for x in flat_results]
+        if args["--write-html"]:
+            _write_file(
+                templates["driver.html"].render(
+                    driver=driver,
+                    results=flat_results,
+                    multiclass=any(
+                        [x.get("class_drivers") for x in flat_results]
+                    ),
+                    seasons=flat_seasons,
+                    leagues={x["leagueid"]: x for x in data["leagues"]},
                 ),
-                seasons=flat_seasons,
-                leagues={x["leagueid"]: x for x in data["leagues"]},
-            ),
-            os.path.join(
-                args["--output"],
-                "drivers",
-                "{}.html".format(driver["custID"]),
-            ),
-        )
+                os.path.join(
+                    args["--output"],
+                    "drivers",
+                    "{}.html".format(driver["custID"]),
+                ),
+            )
+
+        if args["--write-json"]:
+            _write_json(
+                {
+                    "driver": {
+                        "name": driver["displayName"],
+                        "id": driver["custID"],
+                    },
+                    "results": flat_results,
+                    "seasons": flat_seasons,
+                },
+                os.path.join(
+                    args["--output"],
+                    "drivers",
+                    "{}.json".format(driver["custID"]),
+                ),
+            )
 
 
 def _write_drivers(args: dict, data: dict, templates: dict,
@@ -250,7 +287,7 @@ def _write_drivers(args: dict, data: dict, templates: dict,
     stats.log()
 
 
-def _write_seasons(templates: dict, base_path: str, seasons: list,
+def _write_seasons(args: dict, templates: dict, base_path: str, seasons: list,
                    league_info: dict) -> None:
     """Write templated season data to disk."""
 
@@ -262,31 +299,61 @@ def _write_seasons(templates: dict, base_path: str, seasons: list,
                 str(season["season"]["league_season_id"]),
             ))
             race_obj = Race(race["laps"], race["race"])
+
             season_races.append(race_obj)
+
+            if args["--write-html"]:
+                _write_file(
+                    templates["race.html"].render(
+                        season=season["season"],
+                        race=race_obj,
+                        league=league_info,
+                    ),
+                    os.path.join(
+                        base_path,
+                        str(season["season"]["league_season_id"]),
+                        "{}.html".format(race["race"]["subsessionid"]),
+                    )
+                )
+
+            if args["--write-json"]:
+                seas = Season([race_obj], season["season"], league_info)
+                summary = seas.race_summary(race_obj.subsessionid)
+                if summary:
+                    _write_json(
+                        summary,
+                        os.path.join(
+                            base_path,
+                            str(season["season"]["league_season_id"]),
+                            "{}.json".format(race["race"]["subsessionid"]),
+                        )
+                    )
+
+        season_obj = Season(season_races, season["season"], league_info)
+
+        if args["--write-html"]:
             _write_file(
-                templates["race.html"].render(
-                    season=season["season"],
-                    race=race_obj,
+                templates["season.html"].render(
+                    season=season_obj,
                     league=league_info,
+                    races=[x["race"] for x in season["races"]],
                 ),
                 os.path.join(
                     base_path,
-                    str(season["season"]["league_season_id"]),
-                    "{}.html".format(race["race"]["subsessionid"]),
+                    "{}.html".format(season["season"]["league_season_id"]),
                 )
             )
 
-        _write_file(
-            templates["season.html"].render(
-                season=Season(season_races, season["season"]),
-                league=league_info,
-                races=[x["race"] for x in season["races"]],
-            ),
-            os.path.join(
-                base_path,
-                "{}.html".format(season["season"]["league_season_id"]),
-            )
-        )
+        if args["--write-json"]:
+            summary = season_obj.summary()
+            if summary:
+                _write_json(
+                    summary,
+                    os.path.join(
+                        base_path,
+                        "{}.json".format(season["season"]["league_season_id"]),
+                    )
+                )
 
 
 def _league_info(leagues: list, league: int) -> dict:
@@ -307,20 +374,32 @@ def _write_top_level(args: dict, data: dict, templates: dict) -> None:
         templates["style.css"].render(),
         os.path.join(args["--output"], "style.css"),
     )
-    _write_file(
-        templates["index.html"].render(leagues=data["leagues"]),
-        os.path.join(args["--output"], "index.html"),
-    )
+
+    if args["--write-html"]:
+        _write_file(
+            templates["index.html"].render(leagues=data["leagues"]),
+            os.path.join(args["--output"], "index.html"),
+        )
+
+    if args["--write-json"]:
+        _write_json(
+            [League(x, []).info for x in data["leagues"]],
+            os.path.join(args["--output"], "leagues.json"),
+        )
 
     # ignore the js files used only by iRace admin
     excluded = ("socket.io.slim.js", "socket.io.slim.js.map", "style.css")
     for js_file in os.listdir("static"):
         if js_file in excluded:
             continue
-        _write_file(
-            _read_file(os.path.join("static", js_file)),
-            os.path.join(args["--output"], "js", js_file)
-        )
+
+        # XXX move the static html files somewhere else...
+        if js_file.endswith(".html"):
+            out_file = os.path.join(args["--output"], js_file)
+        else:
+            out_file = os.path.join(args["--output"], "js", js_file)
+
+        _write_file(_read_file(os.path.join("static", js_file)), out_file)
 
 
 def write_templates(args: dict, data: dict) -> None:
@@ -335,16 +414,28 @@ def write_templates(args: dict, data: dict) -> None:
         base_path = os.path.join(args["--output"], str(league))
         league_info = _league_info(data["leagues"], league)
         if league_info:
-            _write_file(
-                templates["league.html"].render(
-                    league=league_info,
-                    seasons=[x["season"] for x in _data["seasons"]],
-                ),
-                os.path.join(
-                    args["--output"],
-                    "{}.html".format(league_info["leagueid"]),
-                ),
-            )
+            if args["--write-html"]:
+                _write_file(
+                    templates["league.html"].render(
+                        league=league_info,
+                        seasons=[x["season"] for x in _data["seasons"]],
+                    ),
+                    os.path.join(
+                        args["--output"],
+                        "{}.html".format(league_info["leagueid"]),
+                    ),
+                )
+
+            if args["--write-json"]:
+                summary = League(
+                    league_info,
+                    [x["season"] for x in _data["seasons"]]
+                ).summary
+                if summary:
+                    _write_json(summary, os.path.join(
+                        args["--output"],
+                        "{}.json".format(league_info["leagueid"]),
+                    ))
 
             for member in _data["members"]:
                 found = False
@@ -355,7 +446,13 @@ def write_templates(args: dict, data: dict) -> None:
                 if not found:
                     all_drivers.append(member)
 
-            _write_seasons(templates, base_path, _data["seasons"], league_info)
+            _write_seasons(
+                args,
+                templates,
+                base_path,
+                _data["seasons"],
+                league_info,
+            )
         else:
             try:
                 os.remove(os.path.join(
@@ -364,6 +461,14 @@ def write_templates(args: dict, data: dict) -> None:
                 ))
             except Exception as error:
                 log.warning("Failed to remove league file: %r", error)
+
+            try:
+                os.remove(os.path.join(
+                    args["--output"],
+                    "{}.json".format(league),
+                ))
+            except Exception as error:
+                log.warning("Failed to remove league json: %r", error)
 
             try:
                 shutil.rmtree(os.path.join(args["--output"], str(league)))
@@ -377,8 +482,13 @@ def main():
     """Command line entry point."""
 
     args = get_args(__doc__)
+
+    if not args["--write-json"]:
+        args["--write-html"] = True
+
     # in case we need to fallback to file storage
     os.environ["IRACE_RESULTS"] = args["--input"]
+
     write_templates(args, _read_json())
 
 

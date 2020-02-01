@@ -535,7 +535,11 @@ class Worker:
         """Blocking call to regenerate all HTML relative to the league."""
 
         write_templates(
-            {"--output": self._output["local"]},
+            {
+                "--output": self._output["local"],
+                "--write-json": True,
+                "--write-html": False,
+            },
             {
                 "leagues": Server.read_all(Databases.leagues),
                 "data": {

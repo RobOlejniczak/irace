@@ -84,6 +84,9 @@ h1, .bottomBorder {
 .small {
   font-size: small;
 }
+.medium {
+  font-size: 0.8em;
+}
 .center {
   text-align: center;
   margin: 0 auto;
@@ -107,10 +110,6 @@ td {
 .left {
   text-align: left;
 }
-table:not(.lapdata) td:first-child {
-  font-weight: 600;
-  border-right: 1px solid black;
-}
 .container {
   width: 70%;
   max-width: 800px;
@@ -119,7 +118,20 @@ table:not(.lapdata) td:first-child {
 .chartContainer {
   position: relative;
   margin: 0 auto;
+  z-index: 0;
 }
 .gray {
   color: #666;
+}
+.index {
+  width: 1em !important;
+}
+.laps {
+  z-index: 1;
+}
+.right-border {
+  border-right: 1px solid #111;
+}
+.bold {
+  font-weight: 600;
 }

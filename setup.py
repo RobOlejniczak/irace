@@ -68,10 +68,8 @@ setup(
     tests_require=["mock", "pytest", "pytest-cov"],
     entry_points={"console_scripts": [
         "irace-populate = irace.populate:main",
-        "irace-lap = irace.parse_laps:main",
         "irace-generate = irace.generate:main",
         "irace-league = irace.leagues:main",
-        "irace-results = irace.parse_race:main",
         "irace-admin = irace.admin.web:main",
         "irace-storage = irace.storage:main",
         "irace-web = irace.web:main",

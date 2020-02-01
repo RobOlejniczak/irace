@@ -74,3 +74,9 @@ def random_color(min_avg=0, max_avg=160) -> str:
         rgb = _random_rgb()
         if min_avg < (sum(rgb) / 3) < max_avg:
             return "#{}".format("".join("{:02X}".format(x) for x in rgb))
+
+
+def float_str(num: float, places: int = 2) -> str:
+    """Return the float as a string, to decimal places."""
+
+    return float("{{:,.{}f}}".format(places).format(num))

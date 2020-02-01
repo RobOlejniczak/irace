@@ -170,7 +170,7 @@
      <a href="/"><tr>
       <td></td>
       <td class="serif"><a href='/{{ result["league_id"] }}/{{ result["season_id"] }}.html'>{{ leagues[result["league_id"]]["leaguename"] }}</a></td>
-      <td class="serif">{{ result["race_day"] }}</td>
+      <td class="serif">{{ result["date"] }}</td>
       <td class="serif"><a href='/{{ result["league_id"] }}/{{ result["season_id"] }}/{{ result["race_id"] }}.html'>{{ result["track"] }}{% if result["track_config"] != "N/A" %}<br>{{ result["track_config"] }}{% endif %}</a></td>
       <td>{{ result["car"] }}</td>
       {%- if multiclass %}<td>{{ result["class_name"] }}</td>{%- endif %}

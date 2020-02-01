@@ -42,7 +42,21 @@ class Lap:
         self.flags = _get_flags(data["flags"])
         self.flag_names = tuple([x.name for x in self.flags])
         self.lap = data["lap_num"]
-        self.time = as_timedelta(data["ses_time"] - prev)
+        self.time_int = data["ses_time"] - prev
+        self.time = as_timedelta(self.time_int)
+
+    @property
+    def summary(self) -> dict:
+        """Return a summary of this lap."""
+
+        _summary = {
+            "lap": self.lap,
+            "time": "--:--" if self.lap == 0 else time_string(self.time),
+            "time_int": self.time_int,
+        }
+        if self.flags:
+            _summary["flags"] = self.flag_names
+        return _summary
 
 
 class Laps:
@@ -232,8 +246,9 @@ class Laps:
         """Returns a summary of the laps driven."""
 
         return {
-            "laps": len(self.laps),
+            "num_laps": max(x.lap for x in self.laps) if self.laps else 0,
             "average_lap": self.average_string,
             "fastest_lap": self.fastest_lap_string,
             "fast_lap": self.fast_lap,
+            "laps": [lap.summary for lap in self.laps],
         }

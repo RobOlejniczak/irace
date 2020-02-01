@@ -68,3 +68,6 @@ env.vars
 # populated results
 results
 html
+
+# generated js bundle
+static/bundle.min.js

@@ -1,17 +1,21 @@
 var lastOpened;
+
 function showLaps(driver) {
   hideLaps();
   $("#laps-" + driver).slideDown(100, function() {
     lastOpened = driver;
   });
 }
+
 function hideLaps() {
   if (lastOpened != null) {
     $("#laps-" + lastOpened).slideUp(100);
     lastOpened = null;
   }
 }
+
 var lapsOpen = false;
+
 function toggleLaps() {
   if (lapsOpen) {
     $("#lapTimeChart").slideUp(100, function() {
@@ -25,6 +29,7 @@ function toggleLaps() {
     });
   }
 }
+
 $(document).click(function(event) {
   ele = event.target;
   if (ele == null) {
