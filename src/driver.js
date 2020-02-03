@@ -117,6 +117,11 @@ function resultsColumns(multiclass, seasons) {
       "className": "index right-border bold"
     },
     {
+      "title": "",
+      "data": "id",
+      "visible": false
+    },
+    {
       "title": "League",
       "data": "league.id",
       "className": "serif left",
@@ -137,7 +142,7 @@ function resultsColumns(multiclass, seasons) {
         return linked(raceLink(row.league.id, row.season.id, row.id), track);
       }
     },
-    {"title": "Car", "data": "car", "className": "serif"},
+    {"title": "Car", "data": "car", "className": "serif", "orderData": 1},
     {
       "title": "",
       "searchable": false,
@@ -194,14 +199,14 @@ function resultsColumns(multiclass, seasons) {
   columns.push({
     "title": "Interval",
     "data": "interval",
-    "orderData": 5
+    "orderData": 6
   });
 
   if (multiclass) {
     columns.push({
       "title": "Class Interval",
       "data": "class.interval",
-      "orderData": 7
+      "orderData": 8
     });
   }
 
@@ -249,9 +254,11 @@ function viewDriver(driver) {
     viewIndex();
     return;
   }
+  pushState({"driver": driver}, "iRace - Driver Overview");
+}
 
+function loadDriver(driver) {
   doInit();
-  pushState({"driver": driver});
 
   $.ajax({
     "url": "/drivers/" + driver + ".json",
@@ -261,6 +268,7 @@ function viewDriver(driver) {
         json.driver.name,
         "iRace Driver Overview",
         json.driver.name,
+        {"driver": driver},
         "small"
       );
 
@@ -319,7 +327,7 @@ function viewDriver(driver) {
 
         var racesDT = $("#races").DataTable({
           "data": json.results,
-          "order": [[2, "desc"]],
+          "order": [[1, "desc"]],
           "lengthMenu": [[25, -1], [25, "All"]],
           "columns": resultsColumns(multiclass, json.seasons)
         });

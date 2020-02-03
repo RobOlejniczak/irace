@@ -94,9 +94,10 @@ function viewSeason(league, season) {
     return;
   }
 
-  doInit();
-  pushState({"league": league, "season": season});
+  pushState({"league": league, "season": season}, "iRace - Season Overview");
+}
 
+function loadSeason(league, season) {
   $.ajax({
     "url": "/" + league + "/" + season + ".json",
     "success": function(json) {
@@ -104,7 +105,8 @@ function viewSeason(league, season) {
       setTitles(
         leagueLink(json.league),
         seasonLink(json.league, json.season),
-        json.league.name + " - " + json.season.name
+        json.league.name + " - " + json.season.name,
+        {"league": json.league.id, "season": json.season.id}
       );
 
       var content = $("#content")[0];

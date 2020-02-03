@@ -69,5 +69,6 @@ env.vars
 results
 html
 
-# generated js bundle
+# generated files
 static/bundle.min.js
+static/index.html

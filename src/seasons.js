@@ -1,19 +1,12 @@
 function viewSeasons(league) {
-  // TODO: add this style... somewhere... only for this page...
-  // table.dataTable thead th,
-  // table.dataTable thead td,
-  // table.dataTable.no-footer {
-  //   border-bottom: 0;
-  // }
-
   if (isNaN(league)) {
     viewIndex();
     return;
   }
+  pushState({"league": league}, "iRace - Seasons");
+}
 
-  doInit();
-  pushState({"league": league});
-
+function loadSeasons(league) {
   $.ajax({
     "url": "/" + league + ".json",
     "success": function(json) {
@@ -21,7 +14,8 @@ function viewSeasons(league) {
       setTitles(
         json.league.name,
         "",
-        json.league.name + " - Seasons"
+        json.league.name + " - Seasons",
+        {"league": json.league.id}
       );
 
       var content = $("#content")[0];

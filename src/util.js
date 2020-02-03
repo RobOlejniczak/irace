@@ -55,7 +55,7 @@ function h2LeftLink(slug, text) {
   return h2;
 }
 
-function setTitles(title, subTitle, docTitle) {
+function setTitles(title, subTitle, docTitle, state) {
   $("#title")[0].innerHTML = title;
 
   var subT = $("#subtitle")[0];
@@ -65,13 +65,18 @@ function setTitles(title, subTitle, docTitle) {
     subT.classList.remove(e);
   });
 
-  if (arguments.length > 3) {
-    for (var i = 3; i < arguments.length; i++) {
+  if (arguments.length > 4) {
+    for (var i = 4; i < arguments.length; i++) {
       subT.classList.add(arguments[i]);
     }
   }
 
+  var fullDocTitle = "iRace - " + docTitle
   if (docTitle != null) {
-    document.title = "iRace - " + docTitle;
+    document.title = fullDocTitle;
+  }
+
+  if (state !== false) {
+    updateState(state, fullDocTitle);
   }
 }

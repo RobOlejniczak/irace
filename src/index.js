@@ -1,7 +1,8 @@
 function viewIndex() {
-  doInit();
-  pushState();
+  pushState({}, "iRace - Leagues");
+}
 
+function loadIndex() {
   $.ajax({
     "url": "/leagues.json",
     "success": function(json) {
@@ -9,7 +10,8 @@ function viewIndex() {
       setTitles(
         '<a href="https://github.com/a-tal/irace">iRace</a> Tracked Leagues',
         "",
-        "Leagues"
+        "Leagues",
+        {}
       );
 
       var content = $("#content")[0];
