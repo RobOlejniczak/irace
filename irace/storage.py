@@ -29,11 +29,18 @@ from enum import Enum
 from glob import glob
 from collections import namedtuple
 
-import couchdb
+from .stats.logger import log
+
+try:
+    import couchdb
+    _DB_EXTRAS = True
+except ImportError:
+    couchdb = object()
+    _DB_EXTRAS = False
+    log.warning("irace[db] extras not installed, falling back to flat files")
 
 from .utils import get_args
 from .utils import read_json
-from .stats.logger import log
 
 
 Database = namedtuple("Database", ("name", "sub_keys", "final_key"))
@@ -42,6 +49,7 @@ Database = namedtuple("Database", ("name", "sub_keys", "final_key"))
 class Databases(Enum):
     """All stored databases of JSON results."""
 
+    # -- iRacing JSON --
     calendars = Database("calendars", ("league",), "season")
     laps = Database("laps", ("league", "season", "race"), "driver")
     leagues = Database("leagues", (), "league")
@@ -49,7 +57,20 @@ class Databases(Enum):
     races = Database("races", ("league", "season"), "race")
     seasons = Database("seasons", ("league",), "season")
     admin = Database("admin", (), "system")
+
+    # -- processing JSON --
+    # partial results per league for each driver
     drivers = Database("drivers", (), "driver")
+
+    # -- processed JSON --
+    # top level JSON (leagues.json, <league_id>.json)
+    p_dist = Database("p_dist", (), "name")
+    # per driver JSON with all member league stats
+    p_drivers = Database("p_drivers", (), "name")
+    # league level JSON (<season_id>.json)
+    p_leagues = Database("p_leagues", ("league",), "name")
+    # season level JSON (<race_id>.json)
+    p_seasons = Database("p_seasons", ("league", "season"), "name")
 
 
 def get_server() -> couchdb.Server:
@@ -134,6 +155,10 @@ class Server:
         """Returns the implementation in use."""
 
         if hasattr(Server, "__impl"):
+            return Server.__impl
+
+        if not _DB_EXTRAS:
+            Server.__impl = FileServer(os.getenv("IRACE_RESULTS") or "results")
             return Server.__impl
 
         server = get_server()

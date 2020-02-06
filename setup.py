@@ -2,7 +2,6 @@
 
 
 import io
-import os
 from setuptools import setup
 from setuptools import find_packages
 from setuptools.command.test import test as TestCommand
@@ -40,39 +39,23 @@ setup(
     author_email="adam@talsma.ca",
     url="https://github.com/a-tal/irace",
     download_url="https://github.com/a-tal/irace",
-    description="iRacing web frontend for league stats",
+    description="iRacing league stats fetching and parsing utility",
     long_description=long_description(),
-    include_package_data=True,
-    zip_safe=False,
-    package_data={"iRace": [
-        os.path.join("irace", "templates", f) for f in
-        os.listdir(os.path.join("irace", "templates"))
-    ]},
     packages=find_packages(exclude=["test"]),
     python_requires=">= 3.7.4",
     install_requires=[
         "RequestsThrottler >= 0.2.5",
         "requests >= 2.2.0",
         "docopt >= 0.6.1",
-        "jinja2 >= 2.10.3",
-        "couchdb >= 1.2",
-        "flask >= 1.1.1",
     ],
-    extras_require={
-        "admin": [
-            "gevent >= 1.4.0",
-            "Flask-SocketIO >= 4.2.1",
-        ],
-    },
+    extras_require={"db": ["couchdb >= 1.2"]},
     cmdclass={"test": PyTest},
     tests_require=["mock", "pytest", "pytest-cov"],
     entry_points={"console_scripts": [
         "irace-populate = irace.populate:main",
         "irace-generate = irace.generate:main",
         "irace-league = irace.leagues:main",
-        "irace-admin = irace.admin.web:main",
         "irace-storage = irace.storage:main",
-        "irace-web = irace.web:main",
     ]},
     classifiers=[
         'Development Status :: 4 - Beta',

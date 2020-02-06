@@ -145,15 +145,15 @@ class Race:  # pylint: disable=too-many-instance-attributes
                         "finish": res["finishpos"] + 1,
                         "points": res["league_points"],
                         "out": res["reasonout"],
-                        "interval": "--:--" if \
-                            self.race["eventlapscomplete"] == 0 else \
-                            time_string_raw(res["interval"]) if (
-                                res["interval"] > 0 or
-                                res["finishpos"] == 0
-                            ) else "{:,d}L".format(
-                                res["lapscomplete"] -
-                                self.race["eventlapscomplete"]
-                            ),
+                        "interval": "--:--" if
+                                    self.race["eventlapscomplete"] == 0 else
+                                    time_string_raw(res["interval"]) if (
+                                        res["interval"] > 0 or
+                                        res["finishpos"] == 0
+                                    ) else "{:,d}L".format(
+                                        res["lapscomplete"] -
+                                        self.race["eventlapscomplete"]
+                                    ),
                         "interval_raw": res["interval"],
                         "car": Client.cache["cars"].get(
                             res["carid"],

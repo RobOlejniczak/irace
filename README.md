@@ -23,7 +23,7 @@ Command          | Description
 `irace-populate` | Pull new data from iRacing.com
 `irace-lap`      | Parse a laps JSON file
 `irace-results`  | Parse a race JSON file
-`irace-generate` | Generate HTML files
+`irace-generate` | Generate JSON files
 `irace-league`   | Display basic league information
 `irace-storage`  | CouchDB connection test, can migrate to/from files
 `irace-web`      | Start a web frontend to serve templated files (see note)
@@ -40,7 +40,7 @@ However, because each page is being generated live, the responses from
 ## iRace-admin
 
 There is a `docker-compose.yml` to run an accompanying service to monitor
-seasons in leagues and automatically pull race data, regenerate HTML and
+seasons in leagues and automatically pull race data, regenerate JSON and
 push the resulting files to your iRace webhost.
 
 This service can also be used to occasionally refresh the memberlist of
@@ -70,7 +70,7 @@ IRACE_EXPOSED_PORT=8080
 `IRACE_EXPOSED_PORT` controls what port the nginx container listens on. Ensure
 this port is accessible on your docker host.
 
-Ensure `IRACE_GID`:`IRACE_UID` has write access to `${IRACE_ROOT}/html` on the
+Ensure `IRACE_GID`:`IRACE_UID` has write access to `${IRACE_ROOT}/dist` on the
 Docker host.
 
 ### `env.vars`
@@ -89,10 +89,10 @@ IRACING_PASSWORD | yes* | string | your iRacing.com password for fetching data
 IRACING_CUSTID   | no   | int    | your iRacing.com customer ID
 IRACING_LOGIN    | no   | string | alternative slug to log in with
 IRACE_DEBUG      | no   | bool   | 1 or 0 to send debug information to stdout
-IRACE_HTML       | no   | string | path to html output directory
-IRACE_RESULTS    | no   | string | path to results output direction, if required
+IRACE_DIST       | no   | string | path to dist output directory
+IRACE_RESULTS    | no   | string | path to results output directory, if required
 IRACE_HOST       | no   | string | webhost to push results to
-IRACE_HOST_HTML  | no   | string | path on webhost to push results to
+IRACE_HOST_DIST  | no   | string | path on webhost to push results to
 IRACE_EXPOSED    | no   | bool   | if irace-admin should listen on 0.0.0.0
 IRACE_PORT       | no   | int    | alternative port to run irace-admin on
 IRACE_HTTPS      | no   | bool   | if the webhost is running https
@@ -109,7 +109,7 @@ before building your admin container. Don't forget to include `known_hosts`.
 
 Alternatively, mount `/home/irace/.ssh` inside the container at runtime.
 
-SSH keys are only used if both `IRACE_HOST` and `IRACE_HOST_HTML` are provided
+SSH keys are only used if both `IRACE_HOST` and `IRACE_HOST_DIST` are provided
 via `env.vars`.
 
 ### Building

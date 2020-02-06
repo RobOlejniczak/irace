@@ -150,7 +150,6 @@ class Season:
             }
         }
 
-
     def summary(self) -> dict:
         """Return a summary of all races in this season."""
 
