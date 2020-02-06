@@ -1,0 +1,6 @@
+.eggs
+.venv
+.tox
+.pytest_cache
+.git
+.coverage

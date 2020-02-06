@@ -15,13 +15,20 @@ from .stats import Client
 def read_json(filepath: str) -> object:
     """Reads the JSON object at filepath."""
 
+    return json.loads(read_file(filepath))
+
+
+def read_file(filepath: str) -> str:
+    """Reads the content at filepath."""
+
     with io.open(filepath, "r", encoding="utf-8") as openfile:
-        return json.loads(openfile.read())
+        return openfile.read()
 
 
 def get_args(doc: str) -> dict:
     """Perform the initial docopt parsing for help, version, etc."""
 
+    read_environment_file()
     args = docopt(
         doc,
         version="iRace {}".format(__version__),
@@ -80,3 +87,17 @@ def ensure_directory(file_path: str) -> str:
         os.makedirs(file_path)
 
     return file_path
+
+
+def read_environment_file() -> None:
+    """Injects environment variables from the IRACE_ENV file."""
+
+    env_file = os.environ.get("IRACE_ENV", "/irace/.env")
+    if os.path.exists(env_file) and os.path.isfile(env_file):
+        for line in read_file(env_file).splitlines():
+            try:
+                key, value = line.split("=", 1)
+            except ValueError:
+                pass
+            else:
+                os.environ[key] = value

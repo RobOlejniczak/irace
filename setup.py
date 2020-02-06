@@ -56,6 +56,7 @@ setup(
         "irace-generate = irace.generate:main",
         "irace-league = irace.leagues:main",
         "irace-storage = irace.storage:main",
+        "irace-python = irace.shell:main",
     ]},
     classifiers=[
         'Development Status :: 4 - Beta',
