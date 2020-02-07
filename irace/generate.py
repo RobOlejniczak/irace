@@ -14,6 +14,7 @@ Options:
     --version            display version information
     --output=<path>      output path [default: dist]
     --input=<path>       input path, from irace-populate [default: results]
+    --update-db          update the processed content in couchDB
 """
 
 
@@ -37,30 +38,95 @@ from .stats.logger import log
 class Stats:
     """Static stats object to track processing."""
 
-    def __init__(self, amount: int):
+    def __init__(self, amount: int = 1) -> None:
         self._queued = amount
         self._processed = 0
+        self._to_file = 0
+        self._to_db = 0
+        self._nulls = 0
+        self._duplicates_to_file = 0
+        self._duplicates_to_db = 0
         self.log()
 
     def log(self, level: int = 20) -> None:
         """Log our current state."""
 
         if self._queued and not self._processed:
-            log.log(level, "{:,d} [queued]".format(self._queued))
+            state = "{:,d} [queued]".format(self._queued)
         elif self._processed < self._queued:
-            log.log(level, "{:,d}/{:,d} [working]".format(
+            state = "{:,d}/{:,d} [working]".format(
                 self._processed,
-                self._queued,
-            ))
+                self._queued
+            )
         elif self._queued:
-            log.log(level, "{:,d} [finished]".format(self._queued))
+            state = "{:,d} [finished]".format(self._queued)
         else:
-            log.log(level, "[ready]")
+            state = "[ready]"
 
-    def inc(self) -> None:
+        s_stats = [x for x in (
+            state,
+            "[{} files]".format(self._to_file) if self._to_file else "",
+            "[{} duplicate files]".format(
+                self._duplicates_to_file
+            ) if self._duplicates_to_file else "",
+            "[{} records]".format(self._to_db) if self._to_db else "",
+            "[{} duplicate records]".format(
+                self._duplicates_to_db
+            ) if self._duplicates_to_db else "",
+            "[{} null results]".format(self._nulls) if self._nulls else "",
+        ) if x]
+
+        log.log(level, ("%s " * (len(s_stats) - 1)) + "%s", *s_stats)
+
+    def consume(self, other) -> None:
+        """Consume stats from another instance."""
+
+        self._processed += other._processed
+        self._to_file += other._to_file
+        self._to_db += other._to_db
+        self._nulls += other._nulls
+        self._duplicates_to_file += other._duplicates_to_file
+        self._duplicates_to_db += other._duplicates_to_db
+        self.log()
+
+    def inc(self, amount: int = 1) -> None:
         """Increment the processed count."""
 
-        self._processed += 1
+        self._processed += amount
+        self.log()
+
+    def inc_written_to_file(self, amount: int = 1) -> None:
+        """Increment the written to file count."""
+
+        self._to_file += amount
+
+    def inc_written_to_db(self, amount: int = 1) -> None:
+        """Increment the written to db count."""
+
+        self._to_db += amount
+
+    def inc_nulls(self, amount: int = 1, _processed: bool = True) -> None:
+        """Increment the amount of null results processed."""
+
+        self._nulls += amount
+        if _processed:
+            self.inc(amount)
+
+    def inc_duplicates_to_file(self, amount: int = 1) -> None:
+        """Increment the amount of duplicate results processed (to file)."""
+
+        self._duplicates_to_file += amount
+
+    def inc_duplicates_to_db(self, amount: int = 1) -> None:
+        """Increment the amount of duplicate results processed (to db)."""
+
+        self._duplicates_to_db += amount
+
+    def add(self, amount: int = 1) -> None:
+        """Increase the amount queued."""
+
+        self._queued += amount
+        self.log()
 
 
 def _make_missing(path: str) -> None:
@@ -109,11 +175,78 @@ def _read_json() -> dict:
     }
 
 
-def _write_json(content: object, path: str) -> None:
-    """JSON dump the content and write it to path."""
+def _write_content(args: dict, database: Databases, sub_values: tuple,
+                   _id: str, content: object, *prefix,
+                   stats: Stats = None) -> None:
+    """Write the processed content to the database and/or file."""
 
-    if not content:
-        return None
+    if not database.name.startswith("p_"):
+        raise ValueError("Refusing to write non-processed content: {}".format(
+            database.name
+        ))
+
+    if stats is None:
+        stats = args["stats"]
+
+    if content:
+        _id = "{}.json".format(_id)
+
+        if args.get("--update-db"):
+            if _write_to_db(database, sub_values, _id, content):
+                stats.inc_written_to_db()
+            else:
+                stats.inc_duplicates_to_db()
+
+        if args.get("--output"):
+            path = os.path.join(
+                args["--output"],
+                *prefix,
+                *[str(x) for x in sub_values],
+                _id,
+            )
+            if _write_json(content, path):
+                stats.inc_written_to_file()
+            else:
+                stats.inc_duplicates_to_file()
+    else:
+        stats.inc_nulls(_processed=False)
+
+    stats.inc()
+
+
+def _write_to_db(database: Databases, sub_values: tuple,
+                 _id: str, content: object) -> bool:
+    """Write the content to couchDB."""
+
+    if not Server.couch:
+        Server.connect()
+
+    if Server.couch:
+        if Server.write(database, sub_values, _id, content) >= 0:
+            log.log(
+                5,
+                "Updated content in db %s %r %s",
+                database.name,
+                sub_values,
+                _id,
+            )
+            return True
+
+        log.log(
+            5,
+            "Indentical content in db %s %r %s",
+            database.name,
+            sub_values,
+            _id,
+        )
+        return False
+
+    # might as well throw an error, restart the container
+    raise RuntimeError("Cannot update content in couchDB, not connected!")
+
+
+def _write_json(content: object, path: str) -> bool:
+    """JSON dump the content and write it to path."""
 
     as_json = json.dumps(
         content,
@@ -124,18 +257,15 @@ def _write_json(content: object, path: str) -> None:
     if os.path.isfile(path):
         if as_json == _read_file(path):
             log.log(5, "Identical content, ignoring: %s", path)
-            return None
+            return False
 
-    return _write_file(as_json, path)
-
-
-def _write_file(content: str, path: str) -> None:
-    """Write the content to the file at path."""
+    _make_missing(os.path.dirname(path))
 
     with io.open(path, "w", encoding="utf-8") as open_file:
-        open_file.write(content)
+        open_file.write(as_json)
 
     log.log(5, "Wrote: %s", path)
+    return True
 
 
 def _read_file(path: str) -> str:
@@ -193,12 +323,16 @@ def driver_results(data: dict, driver: dict) -> dict:
     return from_cache
 
 
-def _write_driver(args: dict, data: dict, driver: dict):
+def _write_driver(args: dict, data: dict, driver: dict, stats: Stats) -> None:
     """Write templated driver data to disk."""
 
     res = driver_results(data, driver)
     if res:
-        _write_json(
+        _write_content(
+            args,
+            Databases.p_drivers,
+            (),
+            driver["custID"],
             {
                 "driver": {
                     "name": driver["displayName"],
@@ -213,38 +347,29 @@ def _write_driver(args: dict, data: dict, driver: dict):
                     key=lambda x: x["season"]["id"],
                 ),
             },
-            os.path.join(
-                args["--output"],
-                "drivers",
-                "{}.json".format(driver["custID"]),
-            ),
+            "drivers",
+            stats=stats,
         )
+    else:
+        stats.inc_nulls()
 
 
 def _write_drivers(args: dict, data: dict, drivers: list) -> None:
     """Write all driver data to disk."""
 
-    _make_missing(os.path.join(args["--output"], "drivers"))
-
     # ensure the cache is populated
     Client.login()
 
+    # per thread stats, update global once we're done
     stats = Stats(len(drivers))
 
-    log_gap = int(len(drivers) / 20)  # every 5% of drivers complete
-    processed = 0
-
     def _write_driver_async(driver):
-        _write_driver(args, data, driver)
+        _write_driver(args, data, driver, stats)
 
     with ThreadPoolExecutor(max_workers=20) as executor:
-        for _ in executor.map(_write_driver_async, drivers, timeout=30):
-            stats.inc()
-            processed += 1
-            if processed % log_gap == 0:
-                stats.log()
+        executor.map(_write_driver_async, drivers, timeout=30)
 
-    stats.log()
+    args["stats"].consume(stats)
 
 
 def _write_seasons(args: dict, seasons: list, league: dict) -> None:
@@ -252,37 +377,26 @@ def _write_seasons(args: dict, seasons: list, league: dict) -> None:
 
     for season in seasons:
         season_races = []
+        args["stats"].add(len(season["races"]))
         for race in season["races"]:
-            _make_missing(os.path.join(
-                args["--output"],
-                str(league["leagueid"]),
-                str(season["season"]["league_season_id"]),
-            ))
             race_obj = Race(race["laps"], race["race"])
-
             season_races.append(race_obj)
-
-            # write out per race JSON through the Season object
-            _write_json(
+            _write_content(
+                args,
+                Databases.p_races,
+                (league["leagueid"], season["season"]["league_season_id"]),
+                race["race"]["subsessionid"],
                 Season([race_obj], season["season"], league).race_summary(
                     race_obj.subsessionid
                 ),
-                os.path.join(
-                    args["--output"],
-                    str(league["leagueid"]),
-                    str(season["season"]["league_season_id"]),
-                    "{}.json".format(race["race"]["subsessionid"]),
-                ),
             )
 
-        # write out the full season with all race objects
-        _write_json(
+        _write_content(
+            args,
+            Databases.p_seasons,
+            (league["leagueid"],),
+            season["season"]["league_season_id"],
             Season(season_races, season["season"], league).summary(),
-            os.path.join(
-                args["--output"],
-                str(league["leagueid"]),
-                "{}.json".format(season["season"]["league_season_id"]),
-            ),
         )
 
 
@@ -298,33 +412,44 @@ def _league_info(leagues: list, league: int) -> dict:
 def _write_top_level(args: dict, data: dict) -> None:
     """Write top level files."""
 
-    _make_missing(os.path.join(args["--output"]))
-
-    _write_json(
+    _write_content(
+        args,
+        Databases.p_leagues,
+        (),
+        "leagues",
         [League(x, []).info for x in data["leagues"]],
-        os.path.join(args["--output"], "leagues.json"),
     )
 
 
 def write_templates(args: dict, data: dict) -> None:
     """Write the data-formatted templates to the output path."""
 
+    stats = Stats()
+    args["stats"] = stats
     _write_top_level(args, data)
 
     all_drivers = []
 
     for league, _data in data["data"].items():
+        stats.add()
         league_info = _league_info(data["leagues"], league)
+
         if league_info:
-            _write_json(
+            stats.add(len(_data["seasons"]))
+            log.info(
+                "Generating %d seasons for %s",
+                len(_data["seasons"]),
+                league_info["leaguename"],
+            )
+            _write_content(
+                args,
+                Databases.p_leagues,
+                (),
+                league_info["leagueid"],
                 League(
                     league_info,
                     [x["season"] for x in _data["seasons"]]
                 ).summary,
-                os.path.join(
-                    args["--output"],
-                    "{}.json".format(league_info["leagueid"]),
-                ),
             )
 
             for member in _data["members"]:
@@ -334,6 +459,7 @@ def write_templates(args: dict, data: dict) -> None:
                         found = True
                         break
                 if not found:
+                    stats.add()
                     all_drivers.append(member)
 
             _write_seasons(

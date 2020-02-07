@@ -63,14 +63,14 @@ class Databases(Enum):
     drivers = Database("drivers", (), "driver")
 
     # -- processed JSON --
-    # top level JSON (leagues.json, <league_id>.json)
-    p_dist = Database("p_dist", (), "name")
+    # league level JSON (leagues.json, <league_id>.json)
+    p_leagues = Database("p_leagues", (), "name")
     # per driver JSON with all member league stats
     p_drivers = Database("p_drivers", (), "name")
-    # league level JSON (<season_id>.json)
-    p_leagues = Database("p_leagues", ("league",), "name")
-    # season level JSON (<race_id>.json)
-    p_seasons = Database("p_seasons", ("league", "season"), "name")
+    # season level JSON (<season_id>.json)
+    p_seasons = Database("p_seasons", ("league",), "name")
+    # race level JSON (<race_id>.json)
+    p_races = Database("p_races", ("league", "season"), "name")
 
 
 def get_server() -> couchdb.Server:
@@ -111,7 +111,7 @@ class IServer:
     """Interface layer for couchDB and static file implmentations."""
 
     def write(self, database: Database, sub_values: tuple, _id: str,
-              data: dict) -> None:
+              data: dict) -> int:
         """Write results."""
 
         raise NotImplementedError
@@ -150,30 +150,52 @@ class IServer:
 class Server:
     """Static object to interface both couchDB and static files."""
 
+    couch = False
+
     @staticmethod
-    def _impl() -> IServer:
+    def _impl(_recheck: bool = False) -> IServer:
         """Returns the implementation in use."""
 
-        if hasattr(Server, "__impl"):
+        if hasattr(Server, "__impl") and not _recheck:
             return Server.__impl
 
         if not _DB_EXTRAS:
-            Server.__impl = FileServer(os.getenv("IRACE_RESULTS") or "results")
+            Server.__impl = getattr(
+                Server,
+                "__impl",
+                FileServer(os.getenv("IRACE_RESULTS") or "results"),
+            )
             return Server.__impl
 
         server = get_server()
         try:
             server.version()
         except Exception:
-            Server.__impl = FileServer(os.getenv("IRACE_RESULTS") or "results")
+            Server.__impl = getattr(
+                Server,
+                "__impl",
+                FileServer(os.getenv("IRACE_RESULTS") or "results"),
+            )
         else:
             Server.__impl = CouchServer(server)
+            Server.couch = True
         return Server.__impl
 
     @staticmethod
+    def connect() -> None:
+        """Connects to couchDB if not already."""
+
+        if not Server.couch:
+            Server._impl(_recheck=True)
+
+    @staticmethod
     def write(database: Database, sub_values: tuple, _id: str,
-              data: dict) -> None:
-        """Write results."""
+              data: dict) -> int:
+        """Write results.
+
+        Returns:
+            Driver specific
+        """
 
         return Server._impl().write(_db(database), sub_values, _id, data)
 
@@ -272,8 +294,14 @@ class CouchServer(IServer):
         return all_results
 
     def write(self, database: Database, sub_values: tuple, _id: str,
-              data: dict) -> None:
-        """Write results."""
+              data: dict) -> int:
+        """Write results.
+
+        Returns:
+            1 if the record was updated
+            0 if the record was created
+            -1 if the record was not updated (duplicate content)
+        """
 
         payload = CouchServer._payload(database, sub_values, _id)
         payload["data"] = data
@@ -286,10 +314,12 @@ class CouchServer(IServer):
             if value["data"] != payload["data"]:
                 payload["_rev"] = value["_rev"]
                 couch[key] = payload
-                log.info("Updated %s data for %s", database.name, key)
-        else:
-            couch[key] = payload
-            log.info("Saved %s data for %s", database.name, key)
+                log.log(5, "Updated %s data for %s", database.name, key)
+                return 1
+            return -1
+        couch[key] = payload
+        log.log(5, "Saved %s data for %s", database.name, key)
+        return 0
 
     def read(self, database: Database, sub_values: tuple, _id: str) -> dict:
         """Read results."""
@@ -375,8 +405,13 @@ class FileServer(IServer):
             log.warning("Failed to delete %s: %r", file_path, error)
 
     def write(self, database: Database, sub_values: tuple, _id: str,
-              data: dict) -> None:
-        """Write results."""
+              data: dict) -> int:
+        """Write results.
+
+        Returns:
+            1 if the record was written
+            0 if the record was not written (failed to write)
+        """
 
         path = os.path.join(
             self.path,
@@ -387,7 +422,7 @@ class FileServer(IServer):
         if os.path.exists(path):
             if not os.path.isdir(path):
                 log.error("Output path (%s) is a file, aborting!", path)
-                return
+                return 0
         else:
             os.makedirs(path)
 
@@ -402,6 +437,9 @@ class FileServer(IServer):
                 ))
         except Exception as error:
             log.error("Failed to write %s: %r", path, error)
+            return 0
+
+        return 1
 
     def read(self, database: Database, sub_values: tuple, _id: str) -> dict:
         """Read results."""
