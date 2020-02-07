@@ -97,6 +97,8 @@ def read_environment_file() -> None:
 
     if os.path.exists(ENV_FILE) and os.path.isfile(ENV_FILE):
         for line in read_file(ENV_FILE).splitlines():
+            if not line or line.startswith("#"):
+                continue
             try:
                 key, value = line.split("=", 1)
             except ValueError:
