@@ -48,7 +48,10 @@ setup(
         "requests >= 2.2.0",
         "docopt >= 0.6.1",
     ],
-    extras_require={"db": ["couchdb >= 1.2"]},
+    extras_require={
+        "db": ["couchdb >= 1.2"],
+        "sentry": ["sentry-sdk >= 0.14.1"],
+    },
     cmdclass={"test": PyTest},
     tests_require=["mock", "pytest", "pytest-cov"],
     entry_points={"console_scripts": [

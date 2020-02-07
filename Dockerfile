@@ -15,7 +15,7 @@ RUN echo " ---> Create user and group" && \
     echo " ---> Install packages (apt)" && \
     apt-get install -qqy git && \
     echo " ---> Install packages (pip)" && \
-    pip install -qU requests docopt couchdb \
+    pip install -qU requests docopt couchdb sentry-sdk \
                     git+git://github.com/a-tal/requests-throttler.git && \
     echo " ---> Clean up" && \
     apt-get remove -qqy git && \
@@ -27,7 +27,7 @@ COPY irace /src/irace
 RUN cd /src && \
     find . -type d -exec chmod 755 {} \; && \
     find . -type f -exec chmod 644 {} \; && \
-    pip install -q .[db] && \
+    pip install -q .[db,sentry] && \
     cd / && \
     rm -rf /src
 
