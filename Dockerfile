@@ -32,5 +32,6 @@ RUN cd /src && \
     rm -rf /src
 
 USER irace
+WORKDIR /home/irace
 
 CMD irace-python

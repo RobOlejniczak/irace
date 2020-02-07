@@ -12,6 +12,9 @@ from . import __version__
 from .stats import Client
 
 
+ENV_FILE = os.environ.get("IRACE_ENV", ".env")
+
+
 def read_json(filepath: str) -> object:
     """Reads the JSON object at filepath."""
 
@@ -92,9 +95,8 @@ def ensure_directory(file_path: str) -> str:
 def read_environment_file() -> None:
     """Injects environment variables from the IRACE_ENV file."""
 
-    env_file = os.environ.get("IRACE_ENV", "/irace/.env")
-    if os.path.exists(env_file) and os.path.isfile(env_file):
-        for line in read_file(env_file).splitlines():
+    if os.path.exists(ENV_FILE) and os.path.isfile(ENV_FILE):
+        for line in read_file(ENV_FILE).splitlines():
             try:
                 key, value = line.split("=", 1)
             except ValueError:
