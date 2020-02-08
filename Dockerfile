@@ -27,7 +27,7 @@ COPY irace /src/irace
 RUN cd /src && \
     find . -type d -exec chmod 755 {} \; && \
     find . -type f -exec chmod 644 {} \; && \
-    pip install -q .[db,sentry] && \
+    pip install -q .[db] && \
     cd / && \
     rm -rf /src
 
