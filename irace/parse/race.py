@@ -4,7 +4,6 @@
 from datetime import datetime
 from collections import namedtuple
 
-from .utils import suffix
 from .utils import time_string_raw
 from ..stats import Client
 

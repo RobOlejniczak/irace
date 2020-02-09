@@ -1,6 +1,9 @@
 """Season parsing utilities."""
 
 
+from datetime import datetime
+from datetime import timedelta
+
 from .leaderboard import Leaderboard
 
 
@@ -10,12 +13,14 @@ class Season:
     Instatiate with a list of Race objects and the season info.
     """
 
-    def __init__(self, races: list, season: dict, league: dict):
+    def __init__(self, races: list, season: dict, league: dict,
+                 calendar: dict = None):
         self.races = races
         self.race_data = [x.race for x in self.races]
         self.season = season
         self.league = league
         self.leaderboard = Leaderboard()
+        self.calendar = calendar or {}
         for race in self.races:
             self.leaderboard.add(race)
 
@@ -136,6 +141,33 @@ class Season:
         return {}
 
     @property
+    def calendar_summary(self) -> list:
+        """Return a summary of unknown races."""
+
+        _summary = []
+        for row in self.calendar.get("rows", []):
+
+            if row["subsessionid"]:
+                found = False
+                for known in self.races:
+                    if known.subsessionid == row["subsessionid"]:
+                        found = True
+                        break
+                if found:
+                    continue
+
+            start_at = datetime.utcfromtimestamp(row["launchat"] / 1000)
+            if start_at > datetime.utcnow() - timedelta(days=1):
+                _summary.append({
+                    "time": "{}Z".format(start_at.isoformat()),
+                    "track": row["track_name"],
+                    "config": row["config_name"],
+                    "cars": [x["car_name"] for x in row["cars"]],
+                })
+
+        return _summary
+
+    @property
     def _top_level_info(self) -> dict:
         """Return a summary of our league and season details."""
 
@@ -162,4 +194,6 @@ class Season:
             self.driver_summary(x.driver_id, season_info=False)
             for x in self.standings
         ]
+        if self.calendar:
+            _summary["calendar"] = self.calendar_summary
         return _summary

@@ -396,7 +396,16 @@ def _write_seasons(args: dict, seasons: list, league: dict) -> None:
             Databases.p_seasons,
             (league["leagueid"],),
             season["season"]["league_season_id"],
-            Season(season_races, season["season"], league).summary(),
+            Season(
+                season_races,
+                season["season"],
+                league,
+                Server.read(
+                    Databases.calendars,
+                    (league["leagueid"],),
+                    season["season"]["league_season_id"],
+                ),
+            ).summary(),
         )
 
 

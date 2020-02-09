@@ -136,6 +136,11 @@ class IServer:
 
         raise NotImplementedError
 
+    def list_ids(self, database: Database, sub_values: tuple) -> list:
+        """Return a list of stored ids for the given sub values."""
+
+        raise NotImplementedError
+
     def delete(self, database: Database, sub_values: tuple, _id: str) -> None:
         """Delete a result."""
 
@@ -224,6 +229,12 @@ class Server:
         """Return a count of stored items for the given sub values."""
 
         return Server._impl().count(_db(database), sub_values)
+
+    @staticmethod
+    def list_ids(database: Database, sub_values: tuple) -> list:
+        """Return a list of stored ids for the given sub values."""
+
+        return Server._impl().list_ids(_db(database), sub_values)
 
     @staticmethod
     def delete(database: Database, sub_values: tuple, _id: str) -> None:
@@ -348,6 +359,14 @@ class CouchServer(IServer):
 
         return len(self._find_all(database, sub_values))
 
+    def list_ids(self, database: Database, sub_values: tuple) -> list:
+        """Return a list of stored ids for the given sub values."""
+
+        return [
+            x["_id"].split("/")[-1] for x in
+            self._find_all(database, sub_values)
+        ]
+
     def delete(self, database: Database, sub_values: tuple, _id: str) -> None:
         """Delete a result."""
 
@@ -379,12 +398,12 @@ class FileServer(IServer):
     def _list(self, database: Database, sub_values: tuple) -> list:
         """Return a list of files under the given sub_values."""
 
-        return glob(os.path.join(
+        return [x for x in glob(os.path.join(
             self.path,
             database.name,
             *[str(x) for x in sub_values],
             "*.json",
-        ))
+        )) if os.path.isfile(x)]
 
     def _path(self, database: Database, sub_values: tuple, _id: str) -> str:
         """Return the path the the specific file."""
@@ -474,6 +493,11 @@ class FileServer(IServer):
         """Return a count of stored items for the given sub values."""
 
         return len(self._list(database, sub_values))
+
+    def list_ids(self, database: Database, sub_values: tuple) -> list:
+        """Return a list of stored ids for the given sub values."""
+
+        return self._list(database, sub_values)
 
     def delete(self, database: Database, sub_values: tuple, _id: str) -> None:
         """Delete a result."""

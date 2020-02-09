@@ -646,13 +646,15 @@ class Stats:  # pylint: disable=R0904
     def league_season_calendar(self, league_id, season_id):
         """Returns the calendar of events for the league and season."""
 
-        return self._req(
+        res = self._req(
             URLs.LEAGUE_SEASON_CALENDAR,
             data={
                 "leagueID": league_id,
                 "leagueSeasonID": season_id,
             },
         )
+        utils.format_strings(res)
+        return res
 
     def _league_search(self, term):
         """Requests the league directory with the search parameter."""
