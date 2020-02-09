@@ -86,7 +86,7 @@ class Season:
             if race.race["subsessionid"] == race_id:
                 _summary = {
                     "id": race.subsessionid,
-                    "date": race.race_day,
+                    "time": race.race_time,
                     "sim_time": race.race["simulatedstarttime"],
                     "temp": "{}{}".format(
                         race.race["weather_temp_value"],

@@ -40,10 +40,7 @@ class Race:  # pylint: disable=too-many-instance-attributes
         self.class_winners = tuple(class_winners)
 
         date = datetime.strptime(race["start_time"], "%Y-%m-%d %H:%M:%S")
-        self.race_day = date.strftime("%B {}{}, %Y").format(
-            date.day,
-            suffix(date.day),
-        )
+        self.race_time = "{}Z".format(date.isoformat())
 
         if self.results:
             self.winner = self.results[0]["displayname"]
@@ -183,7 +180,7 @@ class Race:  # pylint: disable=too-many-instance-attributes
                             "league": self.race["leagueid"],
                             "season": self.race["league_season_id"],
                             "id": self.race["subsessionid"],
-                            "date": self.race_day,
+                            "time": self.race_time,
                             "drivers": len(self.results),
                             "track": self.race["track_name"],
                             "config": self.race["track_config_name"],
