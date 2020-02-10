@@ -25,3 +25,12 @@ Command          | Description
 `irace-league`   | Display basic league information
 `irace-storage`  | CouchDB connection test, can migrate to/from files
 `irace-python`   | Open a python shell with iRace utilities imported
+
+
+# Other iRace repositories
+
+* [iRace Admin](https://github.com/a-tal/irace-admin) - iRace Admin Python API & backend worker
+* [iRace API](https://github.com/a-tal/irace-api) - iRace Web Python development backend API
+* [iRace Web](https://github.com/a-tal/irace-web) - iRace Javascript frontend
+* [iRace Admin Web](https://github.com/a-tal/irace-admin-web) - iRace Admin Javascript frontend
+* [iRace Docker](https://github.com/a-tal/irace-docker) - iRace Docker & automation
