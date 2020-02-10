@@ -1,6 +1,6 @@
 # iRace
 
-Web frontend for iRacing league results.
+Python module for fetching and parsing iRacing league results.
 
 
 ## Installation
