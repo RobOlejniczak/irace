@@ -29,7 +29,7 @@ def untested(func):  # XXX remove me!
     return _untested
 
 
-def format_results(results, header):
+def format_results(results, header) -> list:
     """Re-arrange the results into a more manageable data structure."""
 
     return [{header[k]: v for k, v in row.items()} for row in results]

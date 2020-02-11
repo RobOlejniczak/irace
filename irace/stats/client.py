@@ -189,7 +189,8 @@ class Stats:  # pylint: disable=R0904
             ][0].split(":")[1].split(",")[0])
         except Exception as error:
             log.warning("Unable to extract custID: %r", error)
-            return
+            # login failed, probably
+            raise
 
         items = {
             "tracks": "TrackListing",
@@ -564,10 +565,17 @@ class Stats:  # pylint: disable=R0904
 
         return results
 
-    def league_seasons(self, league_id):
-        """Returns the list of seasons in the league."""
+    def league_seasons(self, league_id) -> list:
+        """Return a list of all seasons in the league."""
 
-        results = self._req(URLs.LEAGUE_SEASONS, data={"leagueID": league_id})
+        results = self._req(
+            URLs.LEAGUE_SEASONS,
+            data={
+                "leagueID": league_id,
+                "getInactiveSeasons": 1,
+                "getActiveSeasons": 1,
+            },
+        )
         seasons = utils.format_results(
             results["d"]["r"],
             results["m"],

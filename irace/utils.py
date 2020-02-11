@@ -12,9 +12,6 @@ from . import __version__
 from .stats import Client
 
 
-ENV_FILE = os.environ.get("IRACE_ENV", ".env")
-
-
 def read_json(filepath: str) -> object:
     """Reads the JSON object at filepath."""
 
@@ -31,7 +28,6 @@ def read_file(filepath: str) -> str:
 def get_args(doc: str) -> dict:
     """Perform the initial docopt parsing for help, version, etc."""
 
-    read_environment_file()
     args = docopt(
         doc,
         version="iRace {}".format(__version__),
@@ -90,18 +86,3 @@ def ensure_directory(file_path: str) -> str:
         os.makedirs(file_path)
 
     return file_path
-
-
-def read_environment_file() -> None:
-    """Injects environment variables from the IRACE_ENV file."""
-
-    if os.path.exists(ENV_FILE) and os.path.isfile(ENV_FILE):
-        for line in read_file(ENV_FILE).splitlines():
-            if not line or line.startswith("#"):
-                continue
-            try:
-                key, value = line.split("=", 1)
-            except ValueError:
-                pass
-            else:
-                os.environ[key] = value
