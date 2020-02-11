@@ -1,4 +1,4 @@
-"""Populate fills the results directory with JSON results from series races.
+"""Populate fills the results databases with JSON results from series races.
 
 This script requires iRacing.com credentials to use. The intention is to
 provide further processing of populated results via other scripts, which
@@ -18,7 +18,7 @@ Options:
     --year=<id>          year to pull results from [default: -1]
     --season=<id>        season to pull results from
     --week=<id>          week of season to pull results from [default: -1]
-    --output=<path>      output directory [default: results]
+    --output=<path>      output directory (if not using db) [default: results]
     --league             populate basic information about the club/league
     --seasons            populate seasons for the club/league
     --members            populate members for the club/league

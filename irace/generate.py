@@ -372,31 +372,30 @@ def _write_drivers(args: dict, data: dict, drivers: list) -> None:
     args["stats"].consume(stats)
 
 
-def _write_seasons(args: dict, seasons: list, league: dict) -> None:
+def _write_seasons(args: dict, seasons: list, league: dict) -> list:
     """Write templated season data to disk."""
+
+    _seasons = []
 
     for season in seasons:
         season_races = []
         args["stats"].add(len(season["races"]))
         for race in season["races"]:
             race_obj = Race(race["laps"], race["race"])
-            season_races.append(race_obj)
-            _write_content(
-                args,
-                Databases.p_races,
-                (league["leagueid"], season["season"]["league_season_id"]),
-                race["race"]["subsessionid"],
-                Season([race_obj], season["season"], league).race_summary(
-                    race_obj.subsessionid
-                ),
-            )
+            if race_obj.winner_id > 0:
+                season_races.append(race_obj)
+                _write_content(
+                    args,
+                    Databases.p_races,
+                    (league["leagueid"], season["season"]["league_season_id"]),
+                    race["race"]["subsessionid"],
+                    Season([race_obj], season["season"], league).race_summary(
+                        race_obj.subsessionid
+                    ),
+                )
 
-        _write_content(
-            args,
-            Databases.p_seasons,
-            (league["leagueid"],),
-            season["season"]["league_season_id"],
-            Season(
+        if season_races:
+            season_obj = Season(
                 season_races,
                 season["season"],
                 league,
@@ -405,8 +404,18 @@ def _write_seasons(args: dict, seasons: list, league: dict) -> None:
                     (league["leagueid"],),
                     season["season"]["league_season_id"],
                 ),
-            ).summary(),
-        )
+            )
+            _seasons.append(season_obj)
+
+            _write_content(
+                args,
+                Databases.p_seasons,
+                (league["leagueid"],),
+                season["season"]["league_season_id"],
+                season_obj.summary(),
+            )
+
+    return _seasons
 
 
 def _league_info(leagues: list, league: int) -> dict:
@@ -450,16 +459,6 @@ def write_templates(args: dict, data: dict) -> None:
                 len(_data["seasons"]),
                 league_info["leaguename"],
             )
-            _write_content(
-                args,
-                Databases.p_leagues,
-                (),
-                league_info["leagueid"],
-                League(
-                    league_info,
-                    [x["season"] for x in _data["seasons"]]
-                ).summary,
-            )
 
             for member in _data["members"]:
                 found = False
@@ -471,11 +470,16 @@ def write_templates(args: dict, data: dict) -> None:
                     stats.add()
                     all_drivers.append(member)
 
-            _write_seasons(
-                args,
-                _data["seasons"],
-                league_info,
-            )
+            seasons = _write_seasons(args, _data["seasons"], league_info)
+            if seasons:
+                _write_content(
+                    args,
+                    Databases.p_leagues,
+                    (),
+                    league_info["leagueid"],
+                    League(league_info, seasons).summary,
+                )
+
         else:
             try:
                 os.remove(os.path.join(

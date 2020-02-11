@@ -26,8 +26,5 @@ class League:
 
         return {
             "league": self.info,
-            "seasons": [{
-                "name": season["league_season_name"],
-                "id": season["league_season_id"],
-            } for season in self.seasons]
+            "seasons": [season.league_summary for season in self.seasons],
         }

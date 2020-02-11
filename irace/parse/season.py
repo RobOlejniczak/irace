@@ -168,6 +168,48 @@ class Season:
         return _summary
 
     @property
+    def league_summary(self) -> dict:
+        """Return our name and ID."""
+
+        _last = self.race_summary(
+            self.races[-1].subsessionid,
+            season_info=False,
+            results=False,
+        )
+
+        _summary = {
+            "name": self.season["league_season_name"],
+            "id": self.season["league_season_id"],
+            "last": {
+                "id": _last["id"],
+                "time": _last["time"],
+                "track": _last["track"],
+                "config": _last["config"],
+                "winner": _last["winner"],
+            },
+            "podium": [{
+                "id": driver.driver_id,
+                "name": driver.driver,
+                "points": driver.points,
+                "wins": driver.wins,
+                "races": driver.races,
+            } for driver in self.standings[:3]],
+        }
+
+        cal = self.calendar_summary
+
+        if cal:
+            _next = cal[0]
+            _summary["next"] = {
+                "time": _next["time"],
+                "track": _next["track"],
+                "config": _next["config"],
+                "cars": _next["cars"],
+            }
+
+        return _summary
+
+    @property
     def _top_level_info(self) -> dict:
         """Return a summary of our league and season details."""
 
@@ -179,7 +221,7 @@ class Season:
             "season": {
                 "name": self.season["league_season_name"],
                 "id": self.season["league_season_id"],
-            }
+            },
         }
 
     def summary(self) -> dict:
