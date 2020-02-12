@@ -85,7 +85,7 @@ class _Client:
         """Sends a request using our connection pool and rate limiter."""
 
         response = _Client._get().submit(request)  # async
-        return response.get_response(timeout=10)  # sync (when timeout != 0)
+        return response.get_response(timeout=3600)  # sync (when timeout != 0)
 
     @staticmethod
     def app_exit():
